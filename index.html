@@ -1,35 +1,46 @@
-
 <!DOCTYPE html>
-<html>
+<html lang="fr">
 <head>
-  <meta charset="UTF-8">
-  <title>Mon Livre</title>
-  <script src="libs/jquery.min.js"></script>
-  <script src="libs/pdf.js"></script>
-  <script src="libs/pdf.worker.js"></script>
-  <script src="libs/turn.min.js"></script>
+  <meta charset="UTF-8" />
+  <title>Mon Livre PDF</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- jQuery depuis CDN -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-..." crossorigin="anonymous"></script>
+  <!-- pdf.js depuis CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.min.js"></script>
   <style>
-    body { font-family: sans-serif; text-align: center; }
-    #flipbook { width: 600px; height: 400px; margin: auto; }
-    .page { background: #fff; border: 1px solid #ccc; margin-bottom: 10px; padding: 10px; }
+    body { font-family: sans-serif; padding: 1rem; }
+    #flipbook { display: flex; flex-wrap: wrap; gap: 1rem; }
+    .page { flex: 1 1 45%; border: 1px solid #ccc; padding: 1rem; background: #fafafa; min-height: 150px; }
+    h1 { text-align:center; }
   </style>
 </head>
 <body>
   <h1>Mon Livre PDF</h1>
-  <div id="flipbook"></div>
+  <div id="flipbook">Chargement…</div>
+
   <script>
+    // Indiquer au moteur où est le worker (on peut aussi pointer vers CDN)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.10.377/pdf.worker.min.js';
+
     const container = document.getElementById("flipbook");
-    pdfjsLib.getDocument("pdf/livre.pdf").promise.then(function(pdf) {
+    container.innerHTML = "";
+
+    // Charger le PDF stocké dans /pdf/livre.pdf
+    pdfjsLib.getDocument('pdf/livre.pdf').promise.then(function(pdf) {
       for (let i = 1; i <= pdf.numPages; i++) {
         pdf.getPage(i).then(function(page) {
           page.getTextContent().then(function(text) {
             const div = document.createElement("div");
             div.className = "page";
-            div.innerHTML = text.items.map(item => item.str).join("<br>");
+            div.innerHTML = `<strong>Page ${i}</strong><br>` + text.items.map(item => item.str).join("<br>");
             container.appendChild(div);
           });
         });
       }
+    }).catch(function(err){
+      container.innerText = "Erreur de chargement du PDF : " + err.message;
+      console.error(err);
     });
   </script>
 </body>
