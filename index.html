@@ -1,68 +1,60 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="UTF-8" />
-  <title>Mon Livre PDF</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <style>
-    body {
-      font-family: system-ui,sans-serif;
-      margin: 0;
-      padding: 1rem;
-      background: #f4f4f4;
-      text-align: center;
-    }
-    #flipbook {
-      max-width: 800px;
-      margin: 1rem auto;
-    }
-    .page {
-      background: #fff;
-      border: 1px solid #ccc;
-      padding: 1rem;
-      margin-bottom: 0.5rem;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      text-align: left;
-      white-space: pre-wrap;
-      font-size: 0.9rem;
-    }
-    h1 { margin-top: 0; }
-  </style>
-  <!-- jQuery (facultatif si tu n'en as pas besoin ailleurs) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
-  <!-- pdf.js officiel -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script>
-    // Indiquer au worker où se trouve (CDN)
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
-  </script>
+<meta charset="UTF-8" />
+<title>Flipbook PDF</title>
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<!-- jQuery -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<!-- pdf.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js" integrity="" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+</script>
+<!-- turn.js from CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js" integrity="" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<style>
+body { font-family: system-ui,sans-serif; background:#f0f0f0; margin:0; padding:1rem;}
+h1{ text-align:center;}
+#flipbook { width:800px; height:500px; margin: auto; }
+.page { background:#fff; border:1px solid #ccc; width:390px; height:480px; padding:10px; box-sizing:border-box; overflow:auto; }
+#container { display:flex; justify-content:center; }
+</style>
 </head>
 <body>
   <h1>Mon Livre PDF</h1>
   <div id="flipbook">
-    <p>Chargement…</p>
+    <div class="page"><p>Chargement…</p></div>
   </div>
-
   <script>
-    const container = document.getElementById("flipbook");
-    // Remplace par ton chemin : ici le PDF local dans /pdf/livre.pdf
-    pdfjsLib.getDocument('pdf/livre.pdf').promise.then(function(pdf) {
-      container.innerHTML = ''; // efface "Chargement"
-      for (let i = 1; i <= pdf.numPages; i++) {
-        pdf.getPage(i).then(function(page) {
-          page.getTextContent().then(function(text) {
-            const div = document.createElement("div");
-            div.className = "page";
-            div.innerHTML = `<strong>Page ${i}</strong><br>` + text.items.map(item => item.str).join("<br>");
-            container.appendChild(div);
-          });
+    async function loadPDF() {
+      try {
+        const pdf = await pdfjsLib.getDocument('pdf/livre.pdf').promise;
+        const pages = [];
+        for (let i=1;i<=pdf.numPages;i++) {
+          const page = await pdf.getPage(i);
+          const textContent = await page.getTextContent();
+          const str = textContent.items.map(it=>it.str).join('\n');
+          const div = document.createElement('div');
+          div.className='page';
+          div.innerHTML='<h3>Page '+i+'</h3><pre>'+str+'</pre>';
+          pages.push(div);
+        }
+        const fb = document.getElementById('flipbook');
+        fb.innerHTML='';
+        pages.forEach(p=>fb.appendChild(p));
+        // initialize turn.js
+        $('#flipbook').turn({
+          width: 800,
+          height: 500,
+          autoCenter: true
         });
+      } catch(e) {
+        document.getElementById('flipbook').innerHTML='<div class="page"><p style="color:red;">Erreur: '+e.message+'</p></div>';
+        console.error(e);
       }
-    }).catch(function(err){
-      container.innerHTML = '<p style="color:red;">Erreur de chargement du PDF : ' + err.message + '</p>';
-      console.error(err);
-    });
+    }
+    loadPDF();
   </script>
 </body>
 </html>
