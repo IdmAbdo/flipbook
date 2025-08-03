@@ -1,29 +1,11 @@
+
 <!DOCTYPE html>
-<html lang="fr">
+<html>
 <head>
   <meta charset="UTF-8">
-  <title>Upload PDF (Privé)</title>
+  <title>Admin</title>
 </head>
 <body>
-  <h1>Remplacer le PDF actuel</h1>
-  <input type="file" id="fileInput" accept="application/pdf">
-  <p><strong>⚠️ Ce fichier sera téléchargé localement.<br>Tu dois ensuite le glisser dans <code>pdf/livre.pdf</code> puis republier sur GitHub.</strong></p>
-  <script>
-    document.getElementById("fileInput").addEventListener("change", function () {
-      const file = this.files[0];
-      if (!file) return;
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        const link = document.createElement("a");
-        link.href = e.target.result;
-        link.download = "livre.pdf";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        alert("Le fichier 'livre.pdf' est téléchargé.\nRemplace manuellement le fichier dans le dossier pdf/.");
-      };
-      reader.readAsDataURL(file);
-    });
-  </script>
+  <h2>Page Admin (à compléter)</h2>
 </body>
 </html>
