@@ -6,7 +6,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 
 <style>
-  /* ---- style de base ---- */
   body{margin:0;background:#111;color:#fff;font-family:system-ui,sans-serif;overflow:hidden}
   h1{text-align:center;margin:10px 0;font-size:clamp(22px,6vw,38px)}
   .bar{display:flex;justify-content:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
@@ -16,7 +15,6 @@
   #container{display:flex;justify-content:center;height:calc(100vh - 110px)}
   #flipbook{background:#222;display:none}
   canvas{background:#fff}
-  /* plein-écran → utilise tout */
   :fullscreen #flipbook{width:100vw!important;height:100vh!important}
 </style>
 
@@ -35,18 +33,18 @@
   <button id="prev" disabled>« Précédent</button>
   <button id="next" disabled>Suivant »</button>
   <button id="fs">Plein écran ⤢</button>
-  <span id="status">Chargement…</span>
+  <span  id="status">Chargement…</span>
 </div>
 
 <div id="container"><div id="flipbook"></div></div>
 
 <script>
-/* -------- config -------- */
-const PDF_URL = 'pdf/livre.pdf';           // chemin du PDF
-/* ------------------------ */
+/* ------------- config ------------- */
+const PDF_URL = 'pdf/livre.pdf';          // chemin de ton PDF
+/* ---------------------------------- */
 
 pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+ 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
 
 const flip     = $('#flipbook'),
       statusEl = $('#status'),
@@ -56,22 +54,26 @@ const flip     = $('#flipbook'),
 
 let pdfDoc,totalPages,zoom=1;
 
-/* 1 page en portrait < 768px, 2 pages sinon */
-function doubleMode(){ return window.innerWidth >= 768; }
+/* double page si large : ≥ 768 px ou orientation paysage */
+function doubleMode(){
+  return window.innerWidth >= 768 || window.matchMedia('(orientation: landscape)').matches;
+}
 
-/* calcule l’échelle pour remplir la zone dispo */
+/* ——— ÉCHELLE ——— */
 function scaleFor(vp){
-  const headerH = document.querySelector('.bar').offsetHeight + 60;
-  const availW  = window.innerWidth  - 32;
-  const availH  = window.innerHeight - headerH;
-  const pages   = doubleMode() ? 2 : 1;
+  const header = document.querySelector('.bar').offsetHeight + 40;
+  const availW = window.innerWidth  - 32;          // marges
+  const availH = window.innerHeight - header;
+  const pages  = doubleMode() ? 2 : 1;
 
   const byW = (availW / pages) / vp.width;
   const byH =  availH            / vp.height;
-  return Math.min(byW,byH) * zoom;
+
+  /* 1 page en portrait → remplir en largeur ; 2 pages → min(byW,byH) */
+  return (pages === 1 ? byW : Math.min(byW,byH)) * zoom;
 }
 
-/* fabrique un canvas pour une page */
+/* canvas d’une page */
 async function renderPage(n){
   const page = await pdfDoc.getPage(n);
   const vp0  = page.getViewport({scale:1});
@@ -84,72 +86,4 @@ async function renderPage(n){
   return c;
 }
 
-/* (re)construction complète */
-async function build(){
-  flip.turn('destroy').empty();          // si déjà initialisé
-  zoom = 1;                              // reset
-  statusEl.text('Chargement PDF…');
-  if(!pdfDoc){                           // 1er build
-    pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
-    totalPages = pdfDoc.numPages;
-  }
-  for(let i=1;i<=totalPages;i++){
-    const cv = await renderPage(i);
-    $('<div class="page">').append(cv).appendTo(flip);
-  }
-  const first = flip.find('canvas')[0];
-  flip.turn({
-    display: doubleMode() ? 'double' : 'single',
-    width  : first.width  * (doubleMode()?2:1),
-    height : first.height,
-    autoCenter:true,
-    gradients:true,
-    duration:600
-  }).show();
-
-  statusEl.text(`${totalPages} pages chargées`);
-  prevBtn.prop('disabled',false);
-  nextBtn.prop('disabled',false);
-}
-
-/* navigation */
-prevBtn.on('click',()=>flip.turn('previous'));
-nextBtn.on('click',()=>flip.turn('next'));
-
-/* swipe */
-flip.on('touchstart',e=>flip.data('x0',e.originalEvent.touches[0].clientX));
-flip.on('touchend',e=>{
-  const x0=flip.data('x0');
-  if(x0==null)return;
-  const dx=x0-e.originalEvent.changedTouches[0].clientX;
-  if(dx>50)flip.turn('next');
-  if(dx<-50)flip.turn('previous');
-  flip.removeData('x0');
-});
-
-/* double-tap zoom */
-flip.on('dblclick',()=>{
-  zoom = zoom===1 ? 1.4 : 1;
-  build();
-});
-
-/* plein-écran */
-fsBtn.on('click',()=>{
-  const el=document.documentElement;
-  (!document.fullscreenElement
-    ? (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen)
-    : (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen)
-  ).call(el);
-});
-
-/* rebuild si rotation / resize */
-window.addEventListener('resize', build);
-
-/* lancement */
-build().catch(e=>{
-  statusEl.text('Erreur : '+e.message);
-  console.error(e);
-});
-</script>
-</body>
-</html>
+/* (re)
