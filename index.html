@@ -1,33 +1,30 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <title>Mon Livre PDF – Flipbook</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta charset="utf-8" />
+<title>Mon Livre PDF – Flipbook</title>
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
 
-  <style>
-    body{margin:0;background:#111;color:#fff;font-family:system-ui,sans-serif}
-    h1{text-align:center;margin:12px 0}
-    .bar{display:flex;justify-content:center;gap:8px;margin-bottom:6px}
-    button{padding:8px 16px;background:#444;border:none;color:#fff;border-radius:5px;cursor:pointer}
-    button:disabled{opacity:.4;cursor:not-allowed}
-    #status{margin-left:6px;align-self:center}
-    #container{display:flex;justify-content:center}
-    #flipbook{background:#222}
-    /* plein-écran — occupe tout l’espace */
-    :fullscreen #flipbook{width:100vw !important;height:100vh !important}
-    canvas{background:#fff}
-  </style>
+<style>
+body{margin:0;background:#111;color:#fff;font-family:system-ui,sans-serif}
+h1{text-align:center;margin:12px 0}
+.bar{display:flex;justify-content:center;gap:8px;margin-bottom:6px}
+button{padding:8px 16px;background:#444;border:none;color:#fff;border-radius:5px;cursor:pointer}
+button:disabled{opacity:.4;cursor:not-allowed}
+#status{margin-left:6px;align-self:center}
+#container{display:flex;justify-content:center}
+#flipbook{background:#222}
+:fullscreen #flipbook{width:100vw!important;height:100vh!important}
+canvas{background:#fff}
+</style>
 
-  <!-- jQuery D'ABORD -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-  <!-- turn.js HÉBERGÉ CHEZ TOI -->
-  <script src="libs/turn.min.js"></script>
-
-  <!-- pdf.js (depuis CDN) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js"></script>
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<!-- turn.js local -->
+<script src="libs/turn.min.js"></script>
+<!-- pdf.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js"></script>
 </head>
 <body>
 
@@ -42,103 +39,109 @@
 <div id="container"><div id="flipbook"></div></div>
 
 <script>
-// Configuration du PDF
-const PDF_URL = 'pdf/livre.pdf';  // Assure-toi que le PDF est dans pdf/livre.pdf
-
-// pdf.js
+const PDF_URL = 'pdf/livre.pdf';
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
 
-const flip     = $('#flipbook');
-const statusEl = $('#status');
-const prevBtn  = $('#prev');
-const nextBtn  = $('#next');
-const fsBtn    = $('#fs');
+const flip = $('#flipbook'), statusEl=$('#status'),
+      prevBtn=$('#prev'), nextBtn=$('#next'), fsBtn=$('#fs');
 
-let pdfDoc     = null;
-let totalPages = 0;
+let pdfDoc,totalPages,zoom=1;
 
-// Calcul de l'échelle pour que deux pages tiennent côte à côte
-function scaleFor(viewport){
-  const maxW = Math.min(window.innerWidth, 1000) - 40;  // marge
-  return (maxW / 2) / viewport.width;                    // divise par 2 pour 2 pages
+/* —— échelle —— */
+function scaleFor(vp){
+  const headerH = document.querySelector('.bar').offsetHeight+60;
+  const availW  = window.innerWidth - 32;          // 16 px marge de chaque côté
+  const availH  = window.innerHeight - headerH;    // espace sous la barre
+  const byW     = (availW/2)/vp.width;             // deux pages
+  const byH     = (availH)/vp.height;
+  return Math.min(byW,byH)*zoom;
 }
 
-// Crée un canvas pour une page
+/* canvas d’une page */
 async function makeCanvas(num){
-  const page  = await pdfDoc.getPage(num);
-  const scale = scaleFor(page.getViewport({scale:1}));
-  const vp    = page.getViewport({scale});
-  const c     = document.createElement('canvas');
-  c.width  = vp.width;
-  c.height = vp.height;
+  const page=await pdfDoc.getPage(num),
+        vp0 = page.getViewport({scale:1}),
+        sc  = scaleFor(vp0),
+        vp  = page.getViewport({scale:sc}),
+        c   = document.createElement('canvas');
+  c.width=vp.width; c.height=vp.height;
   await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
   return c;
 }
 
-// Chargement et initialisation du PDF
-(async () => {
-  try {
-    statusEl.text('Chargement du PDF…');
-    pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
-    totalPages = pdfDoc.numPages;
+/* initialisation */
+(async()=>{
+try{
+  statusEl.text('Chargement PDF…');
+  pdfDoc=await pdfjsLib.getDocument(PDF_URL).promise;
+  totalPages=pdfDoc.numPages;
 
-    for (let i = 1; i <= totalPages; i++) {
-      const cv = await makeCanvas(i);
-      $('<div class="page">').append(cv).appendTo(flip);
-    }
-
-    // Initialiser turn.js après avoir ajouté toutes les pages
-    const first = flip.find('canvas')[0];
-    flip.turn({
-      width: first.width * 2,   // 2 pages par ligne
-      height: first.height,
-      autoCenter: true,
-      gradients: true,
-      duration: 600
-    });
-
-    statusEl.text(`${totalPages} pages chargées`);
-    prevBtn.prop('disabled', false);
-    nextBtn.prop('disabled', false);
-
-    prevBtn.on('click', () => flip.turn('previous'));
-    nextBtn.on('click', () => flip.turn('next'));
-
-    // Swipe mobile pour tourner les pages
-    let x0 = null;
-    flip.on('touchstart', e => x0 = e.originalEvent.touches[0].clientX);
-    flip.on('touchend', e => {
-      if (x0 === null) return;
-      const dx = x0 - e.originalEvent.changedTouches[0].clientX;
-      if (dx > 50) flip.turn('next');  // Swipe gauche → droite
-      if (dx < -50) flip.turn('previous');  // Swipe droite → gauche
-      x0 = null;
-    });
-
-    // Plein-écran
-    fsBtn.on('click', () => {
-      const el = document.documentElement;
-      if (!document.fullscreenElement) {
-        (el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen).call(el);
-      } else {
-        (document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen).call(document);
-      }
-    });
-
-    // Redimensionner lors de la modification de taille
-    window.addEventListener('resize', () => {
-      const w = flip.find('canvas')[0].width;
-      const h = flip.find('canvas')[0].height;
-      flip.turn('size', w * 2, h);
-    });
-
-  } catch (e) {
-    statusEl.text('Erreur : ' + e.message);
-    console.error(e);
+  for(let i=1;i<=totalPages;i++){
+    const cv=await makeCanvas(i);
+    $('<div class="page">').append(cv).appendTo(flip);
   }
-})();
-</script>
 
+  const first=flip.find('canvas')[0];
+  flip.turn({
+    width:first.width*2,
+    height:first.height,
+    autoCenter:true,
+    duration:600,
+    gradients:true
+  });
+
+  statusEl.text(`${totalPages} pages chargées`);
+  prevBtn.prop('disabled',false);
+  nextBtn.prop('disabled',false);
+
+  prevBtn.on('click',()=>flip.turn('previous'));
+  nextBtn.on('click',()=>flip.turn('next'));
+
+  /* swipe mobile */
+  let x0=null;
+  flip.on('touchstart',e=>x0=e.originalEvent.touches[0].clientX);
+  flip.on('touchend',e=>{
+    if(x0===null)return;
+    const dx=x0-e.originalEvent.changedTouches[0].clientX;
+    if(dx>50)flip.turn('next');
+    if(dx<-50)flip.turn('previous');
+    x0=null;
+  });
+
+  /* zoom double-clic */
+  flip.on('dblclick',()=>{
+    zoom = zoom===1 ? 1.5 : 1;   // toggle 100% / 150 %
+    rebuild();
+  });
+
+  /* plein-écran */
+  fsBtn.on('click',()=>{
+    const el=document.documentElement;
+    (!document.fullscreenElement?
+        (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen):
+        (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen)
+    ).call(el);
+  });
+
+  /* resize -> recalc canvases */
+  window.addEventListener('resize',rebuild);
+
+}catch(e){statusEl.text('Erreur : '+e.message);console.error(e);}
+})();
+
+/* reconstruit les canvases avec la nouvelle taille/zoom */
+async function rebuild(){
+  flip.turn('destroy').empty();
+  statusEl.text('Recalcul…');
+  for(let i=1;i<=totalPages;i++){
+    const cv=await makeCanvas(i);
+    $('<div class="page">').append(cv).appendTo(flip);
+  }
+  const first=flip.find('canvas')[0];
+  flip.turn({width:first.width*2,height:first.height,autoCenter:true,gradients:true,duration:600});
+  statusEl.text(`${totalPages} pages`);
+}
+</script>
 </body>
 </html>
