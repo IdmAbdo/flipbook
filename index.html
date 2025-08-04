@@ -5,74 +5,101 @@
   <title>Mon Livre PDF</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { background: #111; color: #fff; font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif; margin:0; padding:0; }
+    body { background:#111; color:#fff; font-family:system-ui,-apple-system,sans-serif; margin:0; padding:0; }
     h1 { text-align:center; margin:16px 0; }
-    #viewer { display:flex; flex-direction:column; align-items:center; gap:16px; padding:8px; }
-    canvas { box-shadow: 0 4px 16px rgba(0,0,0,0.5); max-width:90%; height:auto; }
-    .nav { display:flex; justify-content:center; gap:12px; margin-bottom:8px; }
-    button { padding:8px 16px; background:#444; border:none; color:#fff; cursor:pointer; border-radius:4px; }
-    button:disabled { opacity:.5; cursor:default; }
+    .nav { display:flex; gap:8px; justify-content:center; margin-bottom:8px; }
+    button { padding:8px 16px; background:#444; border:none; color:#fff; border-radius:4px; cursor:pointer; }
+    button:disabled { opacity:.4; cursor:not-allowed; }
+    #viewer { display:flex; justify-content:center; padding:8px; }
+    canvas { box-shadow:0 4px 16px rgba(0,0,0,.5); max-width:100%; height:auto; }
+    #status { margin-left:8px; align-self:center; }
   </style>
 </head>
 <body>
   <h1>Mon Livre PDF</h1>
   <div class="nav">
-    <button id="prev">« Précédent</button>
-    <button id="next">Suivant »</button>
+    <button id="prev" disabled>« Précédent</button>
+    <button id="next" disabled>Suivant »</button>
     <span id="status">Chargement...</span>
   </div>
   <div id="viewer"></div>
 
-  <!-- pdf.js depuis CDN (version stable) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js" integrity="sha512-BQSZfGxe0spUq9pIb1D97Glc6jF3fJmP5F3kqXyHdHef2X4DqGZG/KR9M9vN6MfFJv43VFr+JfmQpDqO72Y4g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- pdf.js depuis CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
   <script>
-    // Indiquer où est le worker
+    // Indiquer où est le worker (version correspondante à la lib utilisée)
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
 
-    const url = 'pdf/livre.pdf'; // chemin relatif dans ton repo
+    const url = 'pdf/livre.pdf'; // chemin relatif (vérifie la casse : "pdf/livre.pdf")
     const viewer = document.getElementById('viewer');
     const status = document.getElementById('status');
+    const prevBtn = document.getElementById('prev');
+    const nextBtn = document.getElementById('next');
     let pdfDoc = null;
     let currentPage = 1;
-    const scale = 1.2; // tu peux ajuster
+    let pageRendering = false;
 
-    async function renderPage(pageNum) {
-      status.textContent = `Affichage de la page ${pageNum} / ${pdfDoc.numPages}`;
-      viewer.innerHTML = ''; // effacer l'ancien rendu
-      const page = await pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale });
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      viewer.appendChild(canvas);
-      await page.render({ canvasContext: context, viewport }).promise;
+    function renderPage(num) {
+      pageRendering = true;
+      status.textContent = `Affichage de la page ${num} / ${pdfDoc.numPages}`;
+
+      // Clear précédent canvas
+      viewer.innerHTML = '';
+      pdfDoc.getPage(num).then(function(page) {
+        const viewport = page.getViewport({ scale: 1.2 });
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d');
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+
+        viewer.appendChild(canvas);
+
+        const renderContext = {
+          canvasContext: context,
+          viewport: viewport
+        };
+        const renderTask = page.render(renderContext);
+        renderTask.promise.then(function () {
+          pageRendering = false;
+          // Activer/désactiver les boutons
+          prevBtn.disabled = (currentPage <= 1);
+          nextBtn.disabled = (currentPage >= pdfDoc.numPages);
+        });
+      });
     }
 
-    async function loadPDF() {
-      try {
-        const loading = pdfjsLib.getDocument(url);
-        pdfDoc = await loading.promise;
-        status.textContent = 'PDF chargé.';
-        renderPage(currentPage);
-      } catch (e) {
-        status.textContent = 'Erreur de chargement du PDF: ' + e.message;
-        console.error(e);
+    function queueRenderPage(num) {
+      if (pageRendering) {
+        // Attendre un peu et réessayer
+        setTimeout(() => queueRenderPage(num), 100);
+      } else {
+        renderPage(num);
       }
     }
 
-    document.getElementById('prev').addEventListener('click', () => {
+    prevBtn.addEventListener('click', () => {
       if (currentPage <= 1) return;
       currentPage--;
-      renderPage(currentPage);
-    });
-    document.getElementById('next').addEventListener('click', () => {
-      if (currentPage >= pdfDoc.numPages) return;
-      currentPage++;
-      renderPage(currentPage);
+      queueRenderPage(currentPage);
     });
 
-    loadPDF();
+    nextBtn.addEventListener('click', () => {
+      if (currentPage >= pdfDoc.numPages) return;
+      currentPage++;
+      queueRenderPage(currentPage);
+    });
+
+    // Charger le PDF
+    pdfjsLib.getDocument(url).promise.then(function(pdf) {
+      pdfDoc = pdf;
+      status.textContent = `PDF chargé (${pdfDoc.numPages} pages)`;
+      prevBtn.disabled = false;
+      nextBtn.disabled = false;
+      renderPage(currentPage);
+    }).catch(function(err){
+      status.textContent = 'Erreur de chargement : ' + err.message;
+      console.error(err);
+    });
   </script>
 </body>
 </html>
