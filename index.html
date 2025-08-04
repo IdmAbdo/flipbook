@@ -65,12 +65,10 @@
   </style></head>
 <body>  <h1>Mon Livre PDF</h1>
   <div class="nav">
-    <button id="prev" disabled>&laquo; Précédent</button>
-    <button id="next" disabled>Suivant &raquo;</button>
     <button id="fullscreen">Plein écran ⛶</button>
   </div>  <div id="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
-  </div>  <!-- Librairies locales -->  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.js"></script>  <script src="libs/pdf.worker.min.js"></script>  <script>
+  </div>  <!-- Librairies locales -->  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.js"></script>  <script src="libs/pdf.worker.js"></script>  <script>
   $(function(){
     // PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.js';
