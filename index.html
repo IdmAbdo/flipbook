@@ -13,11 +13,10 @@
       color: #fff;
       font-family: sans-serif;
       text-align: center;
-      overflow: hidden;
     }
     h1 { margin: 1rem 0; }
 
-    /* Barre de contrôle (seul “Plein écran”) */
+    /* Nav */
     .nav {
       display: flex;
       justify-content: center;
@@ -34,43 +33,44 @@
       font-size: 1rem;
     }
 
-    /* Conteneur principal */
+    /* Conteneur central */
     #flipbook-container {
       display: flex;
       justify-content: center;
-      align-items: center;
-      width: 100vw;
-      height: calc(100vh - 3rem);
+      margin: 0 auto 2rem;
+      max-width: 100%;
       overflow: hidden;
     }
-    #flipbook {
-      background: #222;
-      border-radius: 8px;
-      width: 90vw;
-      height: 70vh; /* sera ajusté par JS */
+
+    /* Flipbook */
+    .flipbook {
+      position: relative;
+      margin: 0 auto;
     }
-    .page img {
+    .flipbook .page {
+      width: 50%;
+      height: 100%;
+    }
+    .flipbook .page img {
       display: block;
       width: 100%;
       height: auto;
       border-radius: 6px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.6);
     }
-    :fullscreen #flipbook {
-      width: 100vw!important;
-      height: 100vh!important;
-    }
   </style>
 </head>
 <body>
 
   <h1>Mon Livre PDF</h1>
+
   <div class="nav">
+    <!-- SEUL bouton conservé -->
     <button id="fullscreen">Plein écran ⛶</button>
   </div>
 
   <div id="flipbook-container">
-    <div id="flipbook"></div>
+    <div id="flipbook" class="flipbook"></div>
   </div>
 
   <!-- Librairies locales -->
@@ -81,81 +81,76 @@
 
   <script>
   $(function(){
-    // 1) configurer pdf.js
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.js';
 
-    const url     = 'pdf/livre.pdf';
-    const $flip   = $('#flipbook');
-    const $fsBtn  = $('#fullscreen');
-    let pdfDoc, totalPages, currentPage = 1;
+    // Configurer le worker PDF.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
-    // 2) charger et streamer toutes les pages
-    pdfjsLib.getDocument(url).promise.then(doc => {
-      pdfDoc      = doc;
-      totalPages  = doc.numPages;
-      const jobs  = [];
-      for(let i=1; i<=totalPages; i++){
-        jobs.push(
+    const url         = 'pdf/livre.pdf';
+    const flipbookEl  = $('#flipbook');
+    const fsBtn       = $('#fullscreen');
+
+    let pdfDoc = null;
+
+    // Charger et rendre chaque page
+    pdfjsLib.getDocument(url).promise.then(function(doc) {
+      pdfDoc = doc;
+      const total = doc.numPages;
+      const renders = [];
+
+      for (let i = 1; i <= total; i++) {
+        renders.push(
           doc.getPage(i).then(page => {
-            const scale = 1.2;
-            const vp    = page.getViewport({ scale });
-            const cnv   = document.createElement('canvas');
-            cnv.width   = vp.width;
-            cnv.height  = vp.height;
-            return page.render({ canvasContext: cnv.getContext('2d'), viewport: vp })
+            const scale    = 1.2;
+            const vp       = page.getViewport({ scale });
+            const canvas   = document.createElement('canvas');
+            canvas.width   = vp.width;
+            canvas.height  = vp.height;
+            const ctx      = canvas.getContext('2d');
+            return page.render({ canvasContext: ctx, viewport: vp })
               .promise.then(() => {
-                const $pg = $('<div class="page">')
-                  .append($('<img>').attr('src', cnv.toDataURL()));
-                $flip.append($pg);
+                const $p = $('<div class="page">');
+                const img = canvas.toDataURL();
+                $p.append($('<img>').attr('src', img));
+                flipbookEl.append($p);
               });
           })
         );
       }
-      return Promise.all(jobs);
-    }).then(initFlipbook);
 
-    // 3) initialisation turn.js avec effet de pliage
+      return Promise.all(renders).then(initFlipbook);
+    });
+
     function initFlipbook(){
-      const w = Math.min(window.innerWidth * 0.9, 800);
+      const w = Math.min(window.innerWidth, 800);
       const h = Math.round(w * 0.7);
 
-      $flip.css({ width: w, height: h })
-           .turn({
-             width:      w,
-             height:     h,
-             display:    'double',  // **toujours 2 pages**
-             autoCenter: true,
-             gradients:  true,      // ombres du pli
-             cornerSize: 100,       // zone de “tirage” du coin
-             elevation:  50,        // relief 3D
-             duration:   600,
-             when: {
-               turned: (e, page) => {
-                 currentPage = page;
-               }
-             }
-           });
+      flipbookEl.turn({
+        width:      w,
+        height:     h,
+        autoCenter: true,
+        duration:   600,
+        elevation:  50
+      });
     }
 
-    // 4) plein écran
-    $fsBtn.on('click', () => {
+    // Plein écran
+    fsBtn.on('click', () => {
       const el = document.documentElement;
       if (!document.fullscreenElement) {
         el.requestFullscreen?.();
       } else {
         document.exitFullscreen?.();
       }
-      // après bascule full-screen, recalculer
-      setTimeout(initFlipbook, 300);
     });
 
-    // 5) redimensionnement
-    $(window).on('resize orientationchange', () => {
-      if ($flip.data('turn')) {
-        const w = Math.min(window.innerWidth * 0.9, 800);
-        $flip.turn('size', w, Math.round(w * 0.7));
+    // Redimensionnement
+    $(window).on('resize', () => {
+      if (pdfDoc && flipbookEl.data('turn')) {
+        const w = Math.min(window.innerWidth, 800);
+        flipbookEl.turn('size', w, Math.round(w * 0.7));
       }
     });
+
   });
   </script>
 
