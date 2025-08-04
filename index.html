@@ -58,14 +58,6 @@
       border-radius: 6px;
       box-shadow: 0 4px 12px rgba(0,0,0,0.6);
     }
-
-    /* Compteur de pages */
-    #status {
-      position: absolute;
-      top: 1rem;
-      right: 1rem;
-      font-size: 1rem;
-    }
   </style>
 </head>
 <body>
@@ -73,12 +65,12 @@
   <h1>Mon Livre PDF</h1>
 
   <div class="nav">
+    <!-- SEUL bouton conservé -->
     <button id="fullscreen">Plein écran ⛶</button>
   </div>
 
   <div id="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
-    <div id="status"></div>
   </div>
 
   <!-- Librairies locales -->
@@ -89,73 +81,76 @@
 
   <script>
   $(function(){
-    // config PDF.js
+
+    // Configurer le worker PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
-    const url = 'pdf/livre.pdf';
-    const $flip = $('#flipbook');
-    const $fs   = $('#fullscreen');
-    const $status = $('#status');
+    const url         = 'pdf/livre.pdf';
+    const flipbookEl  = $('#flipbook');
+    const fsBtn       = $('#fullscreen');
 
-    let pdfDoc = null, total = 0;
+    let pdfDoc = null;
 
-    pdfjsLib.getDocument(url).promise.then(doc=>{
-      pdfDoc = doc; total = doc.numPages;
-      $status.text(`Page 1 / ${total}`);
+    // Charger et rendre chaque page
+    pdfjsLib.getDocument(url).promise.then(function(doc) {
+      pdfDoc = doc;
+      const total = doc.numPages;
+      const renders = [];
 
-      const loads = [];
-      for(let i=1;i<=total;i++){
-        loads.push(
-          doc.getPage(i).then(page=>{
-            const scale = 1.2;
-            const vp = page.getViewport({scale});
-            const c = document.createElement('canvas');
-            c.width = vp.width;
-            c.height= vp.height;
-            const ctx = c.getContext('2d');
-            return page.render({canvasContext:ctx,viewport:vp}).promise.then(()=>{
-              const $p = $('<div/>',{class:'page'});
-              $p.append($('<img/>').attr('src',c.toDataURL()));
-              $flip.append($p);
-            });
+      for (let i = 1; i <= total; i++) {
+        renders.push(
+          doc.getPage(i).then(page => {
+            const scale    = 1.2;
+            const vp       = page.getViewport({ scale });
+            const canvas   = document.createElement('canvas');
+            canvas.width   = vp.width;
+            canvas.height  = vp.height;
+            const ctx      = canvas.getContext('2d');
+            return page.render({ canvasContext: ctx, viewport: vp })
+              .promise.then(() => {
+                const $p = $('<div class="page">');
+                const img = canvas.toDataURL();
+                $p.append($('<img>').attr('src', img));
+                flipbookEl.append($p);
+              });
           })
         );
       }
-      return Promise.all(loads);
-    }).then(init);
 
-    function init(){
-      const W = Math.min(window.innerWidth,800);
-      const H = Math.round(W*0.7);
-      $flip.turn({
-        width: W, height: H,
+      return Promise.all(renders).then(initFlipbook);
+    });
+
+    function initFlipbook(){
+      const w = Math.min(window.innerWidth, 800);
+      const h = Math.round(w * 0.7);
+
+      flipbookEl.turn({
+        width:      w,
+        height:     h,
         autoCenter: true,
-        duration: 600,
-        elevation: 50,
-        when: {
-          turned: function(e, page){
-            $status.text(`Page ${page} / ${total}`);
-          }
-        }
+        duration:   600,
+        elevation:  50
       });
     }
 
-    // plein écran
-    $fs.on('click',()=>{
-      if(!document.fullscreenElement){
-        document.documentElement.requestFullscreen?.();
+    // Plein écran
+    fsBtn.on('click', () => {
+      const el = document.documentElement;
+      if (!document.fullscreenElement) {
+        el.requestFullscreen?.();
       } else {
         document.exitFullscreen?.();
       }
     });
 
-    // resize
-    $(window).on('resize',()=>{
-      if($flip.data('turn')){
-        const W = Math.min(window.innerWidth,800);
-        $flip.turn('size', W, Math.round(W*0.7));
+    // Redimensionnement
+    $(window).on('resize', () => {
+      if (pdfDoc && flipbookEl.data('turn')) {
+        const w = Math.min(window.innerWidth, 800);
+        flipbookEl.turn('size', w, Math.round(w * 0.7));
       }
     });
+
   });
   </script>
 
