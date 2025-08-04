@@ -2,31 +2,58 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Flipbook PDF V1.1</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mon Livre PDF – V1.0+Flip</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
   <style>
-    body{margin:0;background:#111;color:#fff;font-family:sans-serif;display:flex;flex-direction:column;align-items:center;}
-    h1{margin:1rem 0;font-size:2rem;}
-    #controls{display:flex;gap:1rem;align-items:center;margin-bottom:.5rem;}
-    #controls button{padding:.6rem 1rem;background:#333;border:none;border-radius:6px;color:#fff;cursor:pointer;user-select:none;}
-    #controls button:disabled{opacity:.5;cursor:default;}
-    #status{margin-left:1rem;font-size:1rem;}
-    #book-container{flex:1;display:flex;justify-content:center;align-items:center;width:100vw;overflow:hidden;}
-    #flipbook{background:#fff;box-shadow:0 8px 32px rgba(0,0,0,.6);border-radius:8px;overflow:hidden;}
-    .page{background:#fff;overflow:hidden;}
-    .page canvas{display:block;width:100%;height:100%;}
+    body {
+      margin: 0; background: #111; color: #fff;
+      font-family: sans-serif; text-align: center;
+    }
+    h1 { margin: 1rem 0; }
+    .nav {
+      display: flex; justify-content: center; gap: 1rem;
+      margin-bottom: .5rem;
+    }
+    .nav button {
+      padding: .6rem 1rem; background: #333;
+      border: none; border-radius: 4px; color: #fff;
+      cursor: pointer; font-size: 1rem;
+    }
+    .nav button:disabled { opacity:.5; cursor:default }
+    #status { align-self:center; margin-left:.5rem }
+    #flipbook-wrapper {
+      display: flex; justify-content: center; align-items: center;
+      width: 100vw; height: calc(100vh - 4rem); /* laisse de la place au header */
+      overflow: hidden;
+    }
+    #flipbook {
+      background: #222;
+      border-radius: 8px;
+      /* dimensions initiales, seront redimensionnées par JS */
+      width: 90vw;
+      height: 80vh;
+    }
+    .page {
+      background: #fff;
+      overflow: hidden;
+    }
+    .page canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
   </style>
 </head>
 <body>
 
-  <h1>Mon Livre PDF v1.1</h1>
-  <div id="controls">
-    <button id="prev">&laquo; Précédent</button>
-    <button id="next">Suivant &raquo;</button>
+  <h1>Mon Livre PDF – V1.0+Flip</h1>
+  <div class="nav">
+    <button id="prev" disabled>« Précédent</button>
+    <button id="next" disabled>Suivant »</button>
     <button id="fs">Plein écran ⛶</button>
     <span id="status">Chargement…</span>
   </div>
-  <div id="book-container">
+  <div id="flipbook-wrapper">
     <div id="flipbook"></div>
   </div>
 
@@ -36,135 +63,159 @@
   <script src="libs/pdf.js"></script>
   <script src="libs/pdf.worker.js"></script>
   <script>
+  (function(){
     // PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+    const URL = 'pdf/livre.pdf';
+    let pdfDoc, totalPages, currentPage = 1;
 
-    const PDF_URL = 'pdf/livre.pdf';
-    const flipbook = $('#flipbook');
-    const prev = $('#prev'), next = $('#next'), fs = $('#fs'), status = $('#status');
-    let pdfDoc, totalPages, current = 1;
+    const $flip = $('#flipbook'),
+          $prev = $('#prev'),
+          $next = $('#next'),
+          $fs   = $('#fs'),
+          $status = $('#status');
 
-    function displayMode() {
+    // 1 ou 2 pages selon orientation
+    function mode() {
       return window.innerWidth > window.innerHeight ? 'double' : 'single';
     }
 
+    // met à jour l'état des boutons et le texte
     function updateNav() {
-      const mode = displayMode();
-      prev.prop('disabled', current <= 1);
-      next.prop('disabled', mode==='double'
-        ? current+1 > totalPages
-        : current >= totalPages
+      const m = mode();
+      $prev.prop('disabled', currentPage <= 1);
+      $next.prop('disabled',
+        m==='double'
+          ? (currentPage+1 > totalPages)
+          : (currentPage   >= totalPages)
       );
-      if(mode==='double') {
-        status.text(`Pages ${current}-${Math.min(current+1,totalPages)} / ${totalPages}`);
+      if (m==='double') {
+        $status.text(`Pages ${currentPage}-${Math.min(currentPage+1,totalPages)} / ${totalPages}`);
       } else {
-        status.text(`Page ${current} / ${totalPages}`);
+        $status.text(`Page ${currentPage} / ${totalPages}`);
       }
     }
 
-    function initBook() {
-      // détruit si existe
-      if (flipbook.data('turn')) flipbook.turn('destroy').empty();
-      // ajoute pages
+    // initialise turn.js
+    function initTurn() {
+      // détruit si déjà initialisé
+      if ($flip.data('turn')) $flip.turn('destroy').empty();
+
+      // ajoute une div.page par page
       for (let i=1; i<=totalPages; i++) {
-        flipbook.append($('<div/>',{ class:'page', 'data-page':i }));
+        $flip.append($('<div>').addClass('page').attr('data-page', i));
       }
-      // taille et init turn.js
-      const mode = displayMode();
-      const w = Math.min(window.innerWidth*0.9, 900);
-      const h = Math.min(window.innerHeight*0.8, 600);
-      flipbook.css({ width: w, height: h })
-              .turn({
+
+      // dimensions de l'ebook
+      const disp = mode(),
+            w = Math.min(window.innerWidth*0.9, 1000),
+            h = Math.min(window.innerHeight*0.8, 700);
+
+      $flip.css({width: w, height: h});
+      $flip.turn({
         width: w,
         height: h,
-        display: mode,
+        display: disp,
         autoCenter: true,
         gradients: true,
-        elevation: 100,
-        duration: 700,
+        elevation: 50,
+        duration: 600,
         cornerSize: 100,
         when: {
           turned: (e, p) => {
-            current = p;
+            currentPage = p;
             renderVisible();
             updateNav();
           }
         }
       });
-      // rend initial
+
+      // position initiale
+      $flip.turn('page', currentPage);
       renderVisible();
-      flipbook.turn('page', current);
       updateNav();
     }
 
+    // rend une seule page dans son div
     function renderPage(i) {
-      const pageDiv = flipbook.find(`.page[data-page=${i}]`);
-      if (pageDiv.data('rendered')) return;
+      const $pg = $flip.find(`.page[data-page=${i}]`);
+      if (!$pg.length || $pg.data('rendered')) return;
       pdfDoc.getPage(i).then(page => {
-        const viewport = page.getViewport({ scale:1 });
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        // adapter à la page
-        const pw = flipbook.width() / (displayMode()==='double'?2:1);
-        const ph = flipbook.height();
-        const scale = Math.min(pw/viewport.width, ph/viewport.height);
-        const vp = page.getViewport({ scale });
+        const viewport = page.getViewport({ scale: 1 }),
+              pw = $flip.width() / (mode()==='double'?2:1),
+              ph = $flip.height(),
+              scale = Math.min(pw/viewport.width, ph/viewport.height),
+              vp = page.getViewport({ scale });
+
+        const canvas = document.createElement('canvas'),
+              ctx = canvas.getContext('2d');
         canvas.width = vp.width; canvas.height = vp.height;
-        page.render({ canvasContext: ctx, viewport: vp }).promise.then(() => {
-          pageDiv.append(canvas).data('rendered', true);
+        canvas.style.width = pw + 'px';
+        canvas.style.height= ph + 'px';
+
+        page.render({canvasContext: ctx, viewport: vp}).promise.then(() => {
+          $pg.append(canvas).data('rendered', true);
         });
       });
     }
 
+    // rend page courante et suivante si double
     function renderVisible() {
-      renderPage(current);
-      if (displayMode()==='double' && current+1<=totalPages) {
-        renderPage(current+1);
+      renderPage(currentPage);
+      if (mode()==='double' && currentPage+1 <= totalPages) {
+        renderPage(currentPage+1);
       }
     }
 
-    // Navigation
-    prev.on('click', () => {
-      if (displayMode()==='double') current = Math.max(1, current-2);
-      else current = Math.max(1, current-1);
-      flipbook.turn('page', current);
+    // navigation
+    $prev.on('click', () => {
+      currentPage = mode()==='double'
+        ? Math.max(1, currentPage-2)
+        : Math.max(1, currentPage-1);
+      $flip.turn('page', currentPage);
     });
-    next.on('click', () => {
-      if (displayMode()==='double') current = Math.min(current+2, totalPages);
-      else current = Math.min(current+1, totalPages);
-      flipbook.turn('page', current);
+    $next.on('click', () => {
+      currentPage = mode()==='double'
+        ? Math.min(currentPage+2, totalPages)
+        : Math.min(currentPage+1, totalPages);
+      $flip.turn('page', currentPage);
     });
 
     // plein écran
-    fs.on('click', () => {
+    $fs.on('click', ()=> {
       const el = document.documentElement;
-      if (!document.fullscreenElement) el.requestFullscreen?.(); else document.exitFullscreen?.();
-      setTimeout(initBook, 500);
+      if (!document.fullscreenElement) el.requestFullscreen?.();
+      else document.exitFullscreen?.();
+      setTimeout(initTurn, 500);
     });
 
     // swipe
-    flipbook.on('touchstart', e => {
-      const t = e.originalEvent.touches[0].clientX; flipbook.data('x0',t);
-    }).on('touchend', e => {
-      const x0 = flipbook.data('x0'), x1 = e.originalEvent.changedTouches[0].clientX;
-      if (x1-x0>50) prev.click();
-      if (x0-x1>50) next.click();
-    });
+    let x0=0;
+    $flip.on('touchstart', e=> x0 = e.originalEvent.touches[0].clientX)
+         .on('touchend',   e=>{
+           const x1 = e.originalEvent.changedTouches[0].clientX;
+           if (x1 - x0 > 50) $prev.click();
+           if (x0 - x1 > 50) $next.click();
+         });
 
     // resize/orientation
     let to;
-    $(window).on('resize orientationchange', () => {
+    $(window).on('resize orientationchange', ()=>{
       clearTimeout(to);
-      to = setTimeout(initBook, 300);
+      to = setTimeout(initTurn, 250);
     });
 
-    // charge PDF
-    pdfjsLib.getDocument(PDF_URL).promise.then(doc => {
+    // chargement PDF
+    pdfjsLib.getDocument(URL).promise.then(doc => {
       pdfDoc = doc; totalPages = doc.numPages;
-      status.text(`0 / ${totalPages}`);
-      initBook();
-    }).catch(e => status.text('Erreur : '+e.message));
+      $status.text(`0 / ${totalPages}`);
+      initTurn();
+    }).catch(err => {
+      $status.text(`Erreur : ${err.message}`);
+      console.error(err);
+    });
 
+  })();
   </script>
 </body>
 </html>
