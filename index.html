@@ -1,110 +1,78 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
   <title>Mon Livre PDF</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:#111; color:#fff; }
-    #flipbook { width: 90%; height: 70vh; margin: 2rem auto; }
-    .page { background: #fff; color: #000; display: inline-block; }
-    .controls { text-align:center; margin-top:0.5rem; }
-    .btn { padding:0.5rem 1rem; background:#444; color:#fff; border:none; cursor:pointer; border-radius:5px; margin:0 5px; }
-    .btn:disabled { background: #222; cursor: not-allowed; }
+    body { background: #111; color: #fff; font-family: system-ui,-apple-system,BlinkMacSystemFont,sans-serif; margin:0; padding:0; }
+    h1 { text-align:center; margin:16px 0; }
+    #viewer { display:flex; flex-direction:column; align-items:center; gap:16px; padding:8px; }
+    canvas { box-shadow: 0 4px 16px rgba(0,0,0,0.5); max-width:90%; height:auto; }
+    .nav { display:flex; justify-content:center; gap:12px; margin-bottom:8px; }
+    button { padding:8px 16px; background:#444; border:none; color:#fff; cursor:pointer; border-radius:4px; }
+    button:disabled { opacity:.5; cursor:default; }
   </style>
-
-  <!-- 1. jQuery -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"
-    integrity="sha256-/xUj+3OJ+Y5yExlq6GSYGSHk7tPXikynSi3RvD/CM="
-    crossorigin="anonymous"></script>
-
-  <!-- 2. turn.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"
-    integrity="sha512-FgSeBrB8jQ1Hrs0x6rM0+ASkku/EfLmiJ5iI2GmWQ3Gzy3Wry0ZFe6Vjw7rnSTZwaBsqkCUb/Dk0zBj2zOiJ1g=="
-    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-
-  <!-- 3. pdf.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"
-    integrity="sha512-3xq9QiuEyQ7TpJQYXcUNrwq30kxqvXyGfIw1MJq2X/5clml0Uu6wUuMXOoGNV7gM+PO8IW4mTQbJHap9sK+3uw=="
-    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js"
-    integrity="sha512-+fsg9xHmrz1+itL/l9K2pwsWZZ6+VCxTIkj/0t9J+mDmTLq0Pe5WZYC1GJpy2G+eNLxFhA0zHDdIHKcYTbQj8g=="
-    crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-
-  <h1 style="text-align:center; margin-top:1rem;">Mon Livre PDF</h1>
-  <div class="controls">
-    <button id="prev" class="btn" disabled>« Précédent</button>
-    <button id="next" class="btn" disabled>Suivant »</button>
+  <h1>Mon Livre PDF</h1>
+  <div class="nav">
+    <button id="prev">« Précédent</button>
+    <button id="next">Suivant »</button>
     <span id="status">Chargement...</span>
   </div>
-  <div id="flipbook"></div>
+  <div id="viewer"></div>
 
+  <!-- pdf.js depuis CDN (version stable) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js" integrity="sha512-BQSZfGxe0spUq9pIb1D97Glc6jF3fJmP5F3kqXyHdHef2X4DqGZG/KR9M9vN6MfFJv43VFr+JfmQpDqO72Y4g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   <script>
-    const PDF_URL = "pdf/livre.pdf"; // sensible à la casse
+    // Indiquer où est le worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
 
-    const flipbookEl = $("#flipbook");
-    const prevBtn = document.getElementById("prev");
-    const nextBtn = document.getElementById("next");
-    const statusEl = document.getElementById("status");
-
-    // pdf.js worker
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js";
-
+    const url = 'pdf/livre.pdf'; // chemin relatif dans ton repo
+    const viewer = document.getElementById('viewer');
+    const status = document.getElementById('status');
     let pdfDoc = null;
+    let currentPage = 1;
+    const scale = 1.2; // tu peux ajuster
 
-    async function createPageCanvas(pageNum) {
+    async function renderPage(pageNum) {
+      status.textContent = `Affichage de la page ${pageNum} / ${pdfDoc.numPages}`;
+      viewer.innerHTML = ''; // effacer l'ancien rendu
       const page = await pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 1.2 });
-      const canvas = document.createElement("canvas");
+      const viewport = page.getViewport({ scale });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
       canvas.width = viewport.width;
       canvas.height = viewport.height;
-      const ctx = canvas.getContext("2d");
-      await page.render({ canvasContext: ctx, viewport: viewport }).promise;
-      const wrapper = document.createElement("div");
-      wrapper.className = "page";
-      wrapper.style.width = viewport.width + "px";
-      wrapper.style.height = viewport.height + "px";
-      wrapper.appendChild(canvas);
-      return wrapper;
+      viewer.appendChild(canvas);
+      await page.render({ canvasContext: context, viewport }).promise;
     }
 
     async function loadPDF() {
       try {
-        pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
-        const totalPages = pdfDoc.numPages;
-        statusEl.textContent = `Pages : ${totalPages}`;
-
-        const pages = [];
-        for (let i = 1; i <= totalPages; i++) {
-          const pageDiv = await createPageCanvas(i);
-          pages.push(pageDiv);
-        }
-        pages.forEach(p => flipbookEl.append(p));
-
-        flipbookEl.turn({
-          width: flipbookEl.width(),
-          height: flipbookEl.height(),
-          autoCenter: true,
-          gradients: true,
-          duration: 500
-        });
-
-        prevBtn.disabled = false;
-        nextBtn.disabled = false;
-        prevBtn.onclick = () => flipbookEl.turn("previous");
-        nextBtn.onclick = () => flipbookEl.turn("next");
-        statusEl.textContent = `Prêt — ${totalPages} pages`;
+        const loading = pdfjsLib.getDocument(url);
+        pdfDoc = await loading.promise;
+        status.textContent = 'PDF chargé.';
+        renderPage(currentPage);
       } catch (e) {
+        status.textContent = 'Erreur de chargement du PDF: ' + e.message;
         console.error(e);
-        statusEl.textContent = "Erreur : " + (e.message || e);
       }
     }
 
-    $(document).ready(() => {
-      loadPDF();
+    document.getElementById('prev').addEventListener('click', () => {
+      if (currentPage <= 1) return;
+      currentPage--;
+      renderPage(currentPage);
     });
+    document.getElementById('next').addEventListener('click', () => {
+      if (currentPage >= pdfDoc.numPages) return;
+      currentPage++;
+      renderPage(currentPage);
+    });
+
+    loadPDF();
   </script>
 </body>
 </html>
