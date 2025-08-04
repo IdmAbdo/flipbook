@@ -1,101 +1,163 @@
-<!DOCTYPE html><html lang="fr">
+<!DOCTYPE html>
+<html lang="fr">
 <head>
   <meta charset="utf-8">
   <title>Mon Livre PDF</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">  <style>
-    body { margin: 0; padding: 0; background: #111; color: #fff; font-family: sans-serif; text-align: center; }
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: #111;
+      color: #fff;
+      font-family: sans-serif;
+      text-align: center;
+    }
     h1 { margin: 1rem 0; }
-    .nav { display: flex; justify-content: center; gap: 1rem; margin-bottom: 0.5rem; }
-    button { padding: 0.8rem 1.2rem; background: #333; color: #fff; border: none; border-radius: 4px; cursor: pointer; font-size: 1rem; }
-    button:disabled { opacity: 0.5; cursor: default; }
-    #flipbook-container { display: flex; justify-content: center; margin: 0 auto 2rem; max-width: 100%; overflow: hidden; }
-    .flipbook { position: relative; margin: 0 auto; }
-    .flipbook .page { width: 50%; height: 100%; }
-    .flipbook .page img { display: block; width: 100%; height: auto; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,0.6); }
-  </style></head>
+
+    /* Nav */
+    .nav {
+      display: flex;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 0.5rem;
+    }
+    button {
+      padding: 0.8rem 1.2rem;
+      background: #333;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    /* Conteneur central */
+    #flipbook-container {
+      display: flex;
+      justify-content: center;
+      margin: 0 auto 2rem;
+      max-width: 100%;
+      overflow: hidden;
+    }
+
+    /* Flipbook */
+    .flipbook {
+      position: relative;
+      margin: 0 auto;
+    }
+    .flipbook .page {
+      width: 50%;
+      height: 100%;
+    }
+    .flipbook .page img {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+    }
+
+    /* Compteur de pages */
+    #status {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      font-size: 1rem;
+    }
+  </style>
+</head>
 <body>
+
   <h1>Mon Livre PDF</h1>
+
   <div class="nav">
-    <button id="prev" disabled>&laquo; Précédent</button>
-    <button id="next" disabled>Suivant &raquo;</button>
-    <button id="fullscreen">Plein écran &#x26F6;</button>
+    <button id="fullscreen">Plein écran ⛶</button>
   </div>
+
   <div id="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
-  </div>  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script src="libs/pdf.worker.js"></script>  <script>
+    <div id="status"></div>
+  </div>
+
+  <!-- Librairies locales -->
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/turn.min.js"></script>
+  <script src="libs/pdf.js"></script>
+  <script src="libs/pdf.worker.js"></script>
+
+  <script>
   $(function(){
-    // Configurer pdf.js
+    // config PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+
     const url = 'pdf/livre.pdf';
     const $flip = $('#flipbook');
-    const $prev = $('#prev');
-    const $next = $('#next');
     const $fs   = $('#fullscreen');
-    let pdfDoc = null, totalPages = 0;
+    const $status = $('#status');
 
-    // Charger et rendre
-    pdfjsLib.getDocument(url).promise.then(doc => {
-      pdfDoc = doc; totalPages = doc.numPages;
-      const renders = [];
-      for(let i=1;i<=totalPages;i++){
-        renders.push(
-          doc.getPage(i).then(page => {
+    let pdfDoc = null, total = 0;
+
+    pdfjsLib.getDocument(url).promise.then(doc=>{
+      pdfDoc = doc; total = doc.numPages;
+      $status.text(`Page 1 / ${total}`);
+
+      const loads = [];
+      for(let i=1;i<=total;i++){
+        loads.push(
+          doc.getPage(i).then(page=>{
             const scale = 1.2;
             const vp = page.getViewport({scale});
-            const cv = document.createElement('canvas');
-            cv.width = vp.width; cv.height = vp.height;
-            return page.render({canvasContext: cv.getContext('2d'), viewport: vp}).promise.then(()=>{
+            const c = document.createElement('canvas');
+            c.width = vp.width;
+            c.height= vp.height;
+            const ctx = c.getContext('2d');
+            return page.render({canvasContext:ctx,viewport:vp}).promise.then(()=>{
               const $p = $('<div/>',{class:'page'});
-              $p.append($('<img/>').attr('src', cv.toDataURL()));
+              $p.append($('<img/>').attr('src',c.toDataURL()));
               $flip.append($p);
             });
           })
         );
       }
-      return Promise.all(renders).then(initFlipbook);
-    });
+      return Promise.all(loads);
+    }).then(init);
 
-    // Init flipbook V1.0 + pliage
-    function initFlipbook(){
-      const w = Math.min(window.innerWidth*0.9, 800);
-      const h = Math.round(w*0.7);
-      $flip.css({width:w, height:h});
+    function init(){
+      const W = Math.min(window.innerWidth,800);
+      const H = Math.round(W*0.7);
       $flip.turn({
-        width: w,
-        height: h,
+        width: W, height: H,
         autoCenter: true,
-        gradients: true,
-        cornerSize: 100,
-        elevation: 50,
         duration: 600,
+        elevation: 50,
         when: {
-          turned: (e, page) => updateNav(page)
+          turned: function(e, page){
+            $status.text(`Page ${page} / ${total}`);
+          }
         }
       });
-      $prev.prop('disabled', false);
-      $next.prop('disabled', false);
-      $flip.turn('page', 1);
-      updateNav(1);
     }
 
-    function updateNav(page){
-      $prev.prop('disabled', page<=1);
-      $next.prop('disabled', page>=totalPages);
-    }
-
-    $prev.click(()=> $flip.turn('previous'));
-    $next.click(()=> $flip.turn('next'));
-    $fs.click(()=>{
-      const e = document.documentElement;
-      !document.fullscreenElement? e.requestFullscreen?.() : document.exitFullscreen?.();
+    // plein écran
+    $fs.on('click',()=>{
+      if(!document.fullscreenElement){
+        document.documentElement.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
     });
 
-    $(window).resize(()=>{
+    // resize
+    $(window).on('resize',()=>{
       if($flip.data('turn')){
-        const w = Math.min(window.innerWidth*0.9,800);
-        $flip.turn('size', w, Math.round(w*0.7));
+        const W = Math.min(window.innerWidth,800);
+        $flip.turn('size', W, Math.round(W*0.7));
       }
     });
   });
-  </script></body>
+  </script>
+
+</body>
 </html>
