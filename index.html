@@ -3,83 +3,43 @@
 <head>
   <meta charset="UTF-8" />
   <title>Mon Livre PDF</title>
-  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      background: #111;
-      color: #fff;
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      overflow-x: hidden;
-    }
-    h1 {
-      text-align: center;
-      margin: 25px 0 10px 0;
-      font-size: 2.5em;
-      letter-spacing: 1px;
-    }
+    body { background: #111; color: #fff; margin: 0; font-family: sans-serif;}
+    h1 { text-align: center; margin: 32px 0 18px; }
     .nav {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 20px;
-      margin-bottom: 12px;
+      display: flex; justify-content: center; align-items: center;
+      gap: 16px; margin-bottom: 10px;
     }
-    .nav button {
-      padding: 15px 28px;
-      background: #222;
-      color: #fff;
-      border: none;
-      border-radius: 12px;
-      font-size: 1.4em;
-      cursor: pointer;
-      font-weight: bold;
-      transition: background 0.2s;
+    button {
+      padding: 15px 32px; font-size: 1.2em; background: #222;
+      color: #fff; border: none; border-radius: 10px; box-shadow: 0 2px 8px #0005;
+      cursor: pointer; transition: background 0.2s;
     }
-    .nav button:active {
-      background: #333;
+    button:active { background: #444; }
+    #status { margin-left: 30px; font-size: 1.1em; }
+    #flipbook-container {
+      display: flex; justify-content: center; align-items: center;
+      width: 100vw; height: 70vh; /* adapt height if needed */
     }
-    .nav button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .nav #status {
-      font-size: 1.3em;
-      margin-left: 15px;
-      min-width: 110px;
-      display: inline-block;
-    }
-    #viewer-container {
-      width: 100vw;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-    }
-    #viewer {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      margin: 0 auto;
-      background: transparent;
-      min-height: 70vh;
-    }
-    canvas {
-      box-shadow: 0 2px 12px #000c;
-      margin: 4px;
+    #flipbook {
+      box-shadow: 0 8px 32px #0004;
       background: #fff;
-      border-radius: 8px;
-      width: 100%;
-      height: auto;
-      max-width: 96vw;
-      max-height: 78vh;
-      object-fit: contain;
+      border-radius: 14px;
+      /* Sizing will be set by JS for best fit */
+      margin: 0 auto;
+      user-select: none;
+      touch-action: pan-y;
     }
-    @media (max-width: 700px) {
-      h1 { font-size: 1.3em; }
-      .nav button { padding: 7px 13px; font-size: 1em; }
-      .nav #status { font-size: 1em; min-width: 75px;}
-      #viewer { min-height: 50vh;}
+    .page {
+      background: #fff;
+      overflow: hidden;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px #0002;
+    }
+    @media (max-width: 600px) {
+      button { font-size: 1em; padding: 10px 18px; }
+      #flipbook-container { height: 54vh; }
     }
   </style>
 </head>
@@ -88,131 +48,151 @@
   <div class="nav">
     <button id="prev">« Précédent</button>
     <button id="next">Suivant »</button>
-    <button id="fullscreen">Plein écran ⛶</button>
-    <span id="status">Chargement…</span>
+    <button id="fullscreen">Plein écran <span style="font-size:1.1em;">🗖</span></button>
+    <span id="status">Chargement...</span>
   </div>
-  <div id="viewer-container">
-    <div id="viewer"></div>
+  <div id="flipbook-container">
+    <div id="flipbook"></div>
   </div>
+
+  <!-- jQuery -->
   <script src="libs/jquery.min.js"></script>
+  <!-- turn.js -->
+  <script src="libs/turn.min.js"></script>
+  <!-- pdf.js -->
   <script src="libs/pdf.js"></script>
   <script>
-    // Détection du mode d'affichage : single (portrait) ou double (paysage)
-    function getDisplayMode() {
-      return (window.innerWidth > window.innerHeight || window.innerWidth > 900) ? "double" : "single";
-    }
-    // Gestion PDF.js
+    // Configuration PDF.js
     pdfjsLib.GlobalWorkerOptions.workerSrc = "libs/pdf.worker.js";
-    const url = "pdf/livre.pdf";
-    const viewer = document.getElementById("viewer");
-    const status = document.getElementById("status");
-    const prevBtn = document.getElementById("prev");
-    const nextBtn = document.getElementById("next");
-    const fullscreenBtn = document.getElementById("fullscreen");
-    let pdfDoc = null, currentPage = 1, numPages = 0, mode = getDisplayMode();
-    // Affichage d'une ou deux pages selon mode
-    function renderPages(pageNum, mode) {
-      viewer.innerHTML = ""; // Efface les anciennes pages
-      if(mode === "double") {
-        let left = pageNum, right = Math.min(pageNum+1, numPages);
-        [left, right].forEach(function(p, idx){
-          if(p <= numPages) {
-            pdfDoc.getPage(p).then(function(page){
-              let canvas = document.createElement("canvas");
-              viewer.appendChild(canvas);
-              let context = canvas.getContext("2d");
-              let viewport = page.getViewport({scale: window.devicePixelRatio > 1 ? 1.2 : 1});
-              // Pour que les deux canvases tiennent dans l'écran
-              if(viewer.offsetWidth > 0 && idx===0) {
-                let maxW = viewer.offsetWidth/2.1; // marge
-                if(viewport.width > maxW) viewport = page.getViewport({scale: maxW/viewport.width});
-              }
-              canvas.height = viewport.height;
-              canvas.width = viewport.width;
-              page.render({canvasContext: context, viewport: viewport});
-            });
-          }
-        });
-        status.textContent = `Page ${left}${right>left?("-"+right):""} / ${numPages}`;
-      } else {
-        pdfDoc.getPage(pageNum).then(function(page){
-          let canvas = document.createElement("canvas");
-          viewer.appendChild(canvas);
-          let context = canvas.getContext("2d");
-          let viewport = page.getViewport({scale: window.devicePixelRatio > 1 ? 1.2 : 1});
-          // Max width on mobile
-          if(viewer.offsetWidth > 0 && viewport.width > viewer.offsetWidth) {
-            viewport = page.getViewport({scale: viewer.offsetWidth/viewport.width});
-          }
-          canvas.height = viewport.height;
-          canvas.width = viewport.width;
-          page.render({canvasContext: context, viewport: viewport});
-        });
-        status.textContent = `Page ${pageNum} / ${numPages}`;
-      }
-      // Boutons enable/disable
-      if(mode==="double") {
-        prevBtn.disabled = (currentPage <= 1);
-        nextBtn.disabled = (currentPage + 1 > numPages);
-      } else {
-        prevBtn.disabled = (currentPage <= 1);
-        nextBtn.disabled = (currentPage >= numPages);
-      }
+    const PDF_URL = "pdf/livre.pdf"; // <- adapte si besoin
+
+    // Gestion responsive pour flipbook (1 ou 2 pages)
+    function getPageDisplay() {
+      return (window.innerWidth > window.innerHeight) ? 2 : 1;
     }
-    // Suivant / Précédent
-    prevBtn.onclick = function() {
-      if(mode==="double") {
-        if(currentPage>2) { currentPage -= 2; } else { currentPage = 1; }
+
+    function resizeFlipbook() {
+      const container = document.getElementById('flipbook-container');
+      const flipbook = $('#flipbook');
+      // Largeur et hauteur adaptative
+      let ww = window.innerWidth;
+      let wh = window.innerHeight;
+      let bookW, bookH;
+      // Format paysage = deux pages
+      if (getPageDisplay() === 2) {
+        bookW = Math.min(ww * 0.9, 1000);
+        bookH = Math.min(wh * 0.74, 700);
+        flipbook.turn('display', 'double');
       } else {
-        if(currentPage>1) currentPage -= 1;
+        bookW = Math.min(ww * 0.9, 520);
+        bookH = Math.min(wh * 0.68, 700);
+        flipbook.turn('display', 'single');
       }
-      renderPages(currentPage, mode);
-    };
-    nextBtn.onclick = function() {
-      if(mode==="double") {
-        if(currentPage+1<numPages) { currentPage += 2; }
-        else if(currentPage<numPages) { currentPage = numPages; }
-      } else {
-        if(currentPage<numPages) currentPage += 1;
+      flipbook.css({
+        width: bookW + "px",
+        height: bookH + "px"
+      });
+      $('#flipbook .page').css({ width: bookW / getPageDisplay() + "px", height: bookH + "px" });
+    }
+
+    let pdfDoc = null;
+    let totalPages = 0;
+
+    function renderPage(pageNum, canvas) {
+      return pdfDoc.getPage(pageNum).then(function(page) {
+        const viewport = page.getViewport({ scale: 2 });
+        const context = canvas.getContext('2d');
+        // Ajuste la taille du canvas selon la taille du flipbook
+        let w = $("#flipbook").width() / getPageDisplay();
+        let h = $("#flipbook").height();
+        // Ajuste le ratio au mieux selon le PDF (ici forçage A4, sinon viewport.width/height)
+        let ratio = Math.min(w / viewport.width, h / viewport.height);
+        canvas.width = viewport.width * ratio;
+        canvas.height = viewport.height * ratio;
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        return page.render({
+          canvasContext: context,
+          viewport: page.getViewport({ scale: ratio * 2 })
+        }).promise;
+      });
+    }
+
+    function renderAllPages() {
+      $('#status').text('Chargement...');
+      let promises = [];
+      for (let i = 1; i <= totalPages; i++) {
+        let canvas = document.createElement('canvas');
+        canvas.className = "page";
+        promises.push(renderPage(i, canvas).then(() => {
+          $("#flipbook").append(canvas);
+        }));
       }
-      renderPages(currentPage, mode);
-    };
-    // Gestion plein écran
-    fullscreenBtn.onclick = function() {
-      const el = document.documentElement;
-      if (el.requestFullscreen) el.requestFullscreen();
-      else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
-      else if (el.msRequestFullscreen) el.msRequestFullscreen();
-    };
-    // Touch events pour slide page
-    let touchStartX = 0;
-    viewer.addEventListener("touchstart", function(e){
-      if(e.touches.length===1) touchStartX = e.touches[0].clientX;
-    });
-    viewer.addEventListener("touchend", function(e){
-      if(e.changedTouches.length===1) {
-        let dx = e.changedTouches[0].clientX - touchStartX;
-        if(Math.abs(dx)>50) {
-          if(dx>0) prevBtn.click(); else nextBtn.click();
-        }
-      }
-    });
-    // Gestion du resize/orientation
-    window.addEventListener("resize", function(){
-      let newMode = getDisplayMode();
-      if(newMode!==mode) { mode = newMode; renderPages(currentPage, mode);}
-    });
-    // Chargement initial PDF
-    pdfjsLib.getDocument(url).promise.then(function(pdf) {
-      pdfDoc = pdf;
-      numPages = pdfDoc.numPages;
-      mode = getDisplayMode();
-      // Pour les pages paires en double page, commence sur page impaire
-      if(mode==="double" && currentPage%2===0) currentPage--;
-      renderPages(currentPage, mode);
-      status.textContent = numPages+" pages";
-    }, function(error) {
-      status.textContent = "Erreur PDF: "+error.message;
+      Promise.all(promises).then(() => {
+        $('#status').text(totalPages + ' pages');
+        $("#flipbook").turn({
+          width: $("#flipbook").width(),
+          height: $("#flipbook").height(),
+          autoCenter: true,
+          display: (getPageDisplay() === 2) ? 'double' : 'single',
+          gradients: true,
+          acceleration: true,
+          elevation: 50
+        });
+      });
+    }
+
+    function goToPage(num) {
+      $("#flipbook").turn("page", num);
+      updateStatus();
+    }
+
+    function updateStatus() {
+      let page = $("#flipbook").turn("page");
+      let display = getPageDisplay();
+      let text = (display === 2)
+        ? `Page ${page}-${Math.min(page + 1, totalPages)} / ${totalPages}`
+        : `Page ${page} / ${totalPages}`;
+      $("#status").text(text);
+    }
+
+    $(document).ready(function() {
+      pdfjsLib.getDocument(PDF_URL).promise.then(function(pdfDoc_) {
+        pdfDoc = pdfDoc_;
+        totalPages = pdfDoc.numPages;
+        renderAllPages();
+      });
+
+      $(window).on('resize orientationchange', function() {
+        resizeFlipbook();
+        setTimeout(() => {
+          $("#flipbook").turn('display', (getPageDisplay() === 2) ? 'double' : 'single');
+          updateStatus();
+        }, 400);
+      });
+
+      $("#prev").click(function() { $("#flipbook").turn("previous"); updateStatus(); });
+      $("#next").click(function() { $("#flipbook").turn("next"); updateStatus(); });
+
+      $("#fullscreen").click(function() {
+        let el = document.documentElement;
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      });
+
+      $("#flipbook").on("turned", function(event, page) {
+        updateStatus();
+      });
+
+      // Swipe sur mobile pour tourner les pages
+      let startX = 0;
+      $("#flipbook").on("touchstart", function(e) {
+        startX = e.originalEvent.touches[0].clientX;
+      }).on("touchend", function(e) {
+        let endX = e.originalEvent.changedTouches[0].clientX;
+        if (endX - startX > 50) $("#flipbook").turn("previous");
+        else if (startX - endX > 50) $("#flipbook").turn("next");
+      });
     });
   </script>
 </body>
