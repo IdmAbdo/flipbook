@@ -1,21 +1,23 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="utf-8" />
+<meta charset="utf-8">
 <title>Mon Livre PDF – Flipbook</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 
 <style>
-body{margin:0;background:#111;color:#fff;font-family:system-ui,sans-serif}
-h1{text-align:center;margin:12px 0}
-.bar{display:flex;justify-content:center;gap:8px;margin-bottom:6px}
-button{padding:8px 16px;background:#444;border:none;color:#fff;border-radius:5px;cursor:pointer}
-button:disabled{opacity:.4;cursor:not-allowed}
-#status{margin-left:6px;align-self:center}
-#container{display:flex;justify-content:center}
-#flipbook{background:#222}
-:fullscreen #flipbook{width:100vw!important;height:100vh!important}
-canvas{background:#fff}
+  /* ---- style de base ---- */
+  body{margin:0;background:#111;color:#fff;font-family:system-ui,sans-serif;overflow:hidden}
+  h1{text-align:center;margin:10px 0;font-size:clamp(22px,6vw,38px)}
+  .bar{display:flex;justify-content:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
+  button{padding:8px 16px;background:#444;border:none;color:#fff;border-radius:5px;cursor:pointer;font-size:15px}
+  button:disabled{opacity:.4;cursor:not-allowed}
+  #status{margin-left:6px;align-self:center;white-space:nowrap}
+  #container{display:flex;justify-content:center;height:calc(100vh - 110px)}
+  #flipbook{background:#222;display:none}
+  canvas{background:#fff}
+  /* plein-écran → utilise tout */
+  :fullscreen #flipbook{width:100vw!important;height:100vh!important}
 </style>
 
 <!-- jQuery -->
@@ -39,109 +41,115 @@ canvas{background:#fff}
 <div id="container"><div id="flipbook"></div></div>
 
 <script>
-const PDF_URL = 'pdf/livre.pdf';
+/* -------- config -------- */
+const PDF_URL = 'pdf/livre.pdf';           // chemin du PDF
+/* ------------------------ */
+
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
 
-const flip = $('#flipbook'), statusEl=$('#status'),
-      prevBtn=$('#prev'), nextBtn=$('#next'), fsBtn=$('#fs');
+const flip     = $('#flipbook'),
+      statusEl = $('#status'),
+      prevBtn  = $('#prev'),
+      nextBtn  = $('#next'),
+      fsBtn    = $('#fs');
 
 let pdfDoc,totalPages,zoom=1;
 
-/* —— échelle —— */
+/* 1 page en portrait < 768px, 2 pages sinon */
+function doubleMode(){ return window.innerWidth >= 768; }
+
+/* calcule l’échelle pour remplir la zone dispo */
 function scaleFor(vp){
-  const headerH = document.querySelector('.bar').offsetHeight+60;
-  const availW  = window.innerWidth - 32;          // 16 px marge de chaque côté
-  const availH  = window.innerHeight - headerH;    // espace sous la barre
-  const byW     = (availW/2)/vp.width;             // deux pages
-  const byH     = (availH)/vp.height;
-  return Math.min(byW,byH)*zoom;
+  const headerH = document.querySelector('.bar').offsetHeight + 60;
+  const availW  = window.innerWidth  - 32;
+  const availH  = window.innerHeight - headerH;
+  const pages   = doubleMode() ? 2 : 1;
+
+  const byW = (availW / pages) / vp.width;
+  const byH =  availH            / vp.height;
+  return Math.min(byW,byH) * zoom;
 }
 
-/* canvas d’une page */
-async function makeCanvas(num){
-  const page=await pdfDoc.getPage(num),
-        vp0 = page.getViewport({scale:1}),
-        sc  = scaleFor(vp0),
-        vp  = page.getViewport({scale:sc}),
-        c   = document.createElement('canvas');
-  c.width=vp.width; c.height=vp.height;
+/* fabrique un canvas pour une page */
+async function renderPage(n){
+  const page = await pdfDoc.getPage(n);
+  const vp0  = page.getViewport({scale:1});
+  const sc   = scaleFor(vp0);
+  const vp   = page.getViewport({scale:sc});
+  const c    = document.createElement('canvas');
+  c.width  = vp.width;
+  c.height = vp.height;
   await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
   return c;
 }
 
-/* initialisation */
-(async()=>{
-try{
+/* (re)construction complète */
+async function build(){
+  flip.turn('destroy').empty();          // si déjà initialisé
+  zoom = 1;                              // reset
   statusEl.text('Chargement PDF…');
-  pdfDoc=await pdfjsLib.getDocument(PDF_URL).promise;
-  totalPages=pdfDoc.numPages;
-
+  if(!pdfDoc){                           // 1er build
+    pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
+    totalPages = pdfDoc.numPages;
+  }
   for(let i=1;i<=totalPages;i++){
-    const cv=await makeCanvas(i);
+    const cv = await renderPage(i);
     $('<div class="page">').append(cv).appendTo(flip);
   }
-
-  const first=flip.find('canvas')[0];
+  const first = flip.find('canvas')[0];
   flip.turn({
-    width:first.width*2,
-    height:first.height,
+    display: doubleMode() ? 'double' : 'single',
+    width  : first.width  * (doubleMode()?2:1),
+    height : first.height,
     autoCenter:true,
-    duration:600,
-    gradients:true
-  });
+    gradients:true,
+    duration:600
+  }).show();
 
   statusEl.text(`${totalPages} pages chargées`);
   prevBtn.prop('disabled',false);
   nextBtn.prop('disabled',false);
-
-  prevBtn.on('click',()=>flip.turn('previous'));
-  nextBtn.on('click',()=>flip.turn('next'));
-
-  /* swipe mobile */
-  let x0=null;
-  flip.on('touchstart',e=>x0=e.originalEvent.touches[0].clientX);
-  flip.on('touchend',e=>{
-    if(x0===null)return;
-    const dx=x0-e.originalEvent.changedTouches[0].clientX;
-    if(dx>50)flip.turn('next');
-    if(dx<-50)flip.turn('previous');
-    x0=null;
-  });
-
-  /* zoom double-clic */
-  flip.on('dblclick',()=>{
-    zoom = zoom===1 ? 1.5 : 1;   // toggle 100% / 150 %
-    rebuild();
-  });
-
-  /* plein-écran */
-  fsBtn.on('click',()=>{
-    const el=document.documentElement;
-    (!document.fullscreenElement?
-        (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen):
-        (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen)
-    ).call(el);
-  });
-
-  /* resize -> recalc canvases */
-  window.addEventListener('resize',rebuild);
-
-}catch(e){statusEl.text('Erreur : '+e.message);console.error(e);}
-})();
-
-/* reconstruit les canvases avec la nouvelle taille/zoom */
-async function rebuild(){
-  flip.turn('destroy').empty();
-  statusEl.text('Recalcul…');
-  for(let i=1;i<=totalPages;i++){
-    const cv=await makeCanvas(i);
-    $('<div class="page">').append(cv).appendTo(flip);
-  }
-  const first=flip.find('canvas')[0];
-  flip.turn({width:first.width*2,height:first.height,autoCenter:true,gradients:true,duration:600});
-  statusEl.text(`${totalPages} pages`);
 }
+
+/* navigation */
+prevBtn.on('click',()=>flip.turn('previous'));
+nextBtn.on('click',()=>flip.turn('next'));
+
+/* swipe */
+flip.on('touchstart',e=>flip.data('x0',e.originalEvent.touches[0].clientX));
+flip.on('touchend',e=>{
+  const x0=flip.data('x0');
+  if(x0==null)return;
+  const dx=x0-e.originalEvent.changedTouches[0].clientX;
+  if(dx>50)flip.turn('next');
+  if(dx<-50)flip.turn('previous');
+  flip.removeData('x0');
+});
+
+/* double-tap zoom */
+flip.on('dblclick',()=>{
+  zoom = zoom===1 ? 1.4 : 1;
+  build();
+});
+
+/* plein-écran */
+fsBtn.on('click',()=>{
+  const el=document.documentElement;
+  (!document.fullscreenElement
+    ? (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen)
+    : (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen)
+  ).call(el);
+});
+
+/* rebuild si rotation / resize */
+window.addEventListener('resize', build);
+
+/* lancement */
+build().catch(e=>{
+  statusEl.text('Erreur : '+e.message);
+  console.error(e);
+});
 </script>
 </body>
 </html>
