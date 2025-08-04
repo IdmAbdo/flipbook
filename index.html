@@ -2,123 +2,108 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Mon Livre PDF</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>Mon Livre PDF – double page</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     body{margin:0;background:#111;color:#fff;font-family:system-ui,sans-serif}
-    h1{text-align:center;margin:16px 0}
-    .nav{display:flex;justify-content:center;gap:8px;margin-bottom:8px}
-    button{padding:8px 16px;background:#444;border:none;color:#fff;border-radius:4px;cursor:pointer}
+    h1{text-align:center;margin:12px 0}
+    .bar{display:flex;justify-content:center;gap:8px;margin-bottom:6px}
+    button{padding:8px 16px;background:#444;border:none;color:#fff;border-radius:5px;cursor:pointer}
     button:disabled{opacity:.4;cursor:not-allowed}
-    #viewer{display:flex;justify-content:center;gap:8px;flex-wrap:nowrap;overflow:hidden;padding:8px}
-    canvas{box-shadow:0 4px 16px rgba(0,0,0,.5);background:#fff}
     #status{margin-left:6px;align-self:center}
+    #viewer{display:flex;justify-content:center;gap:6px;overflow:hidden;padding:6px}
+    canvas{background:#fff;box-shadow:0 4px 12px rgba(0,0,0,.45);max-width:100%;height:auto}
   </style>
 </head>
 <body>
-  <h1>Mon Livre PDF</h1>
-  <div class="nav">
-    <button id="prev" disabled>« Précédent </button>
-    <button id="next" disabled>Suivant »</button>
-    <span id="status">Chargement…</span>
-  </div>
-  <div id="viewer"></div>
 
-  <!-- pdf.js (UMD) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js"></script>
+<h1>Mon Livre PDF</h1>
+<div class="bar">
+  <button id="prev" disabled>« Précédent</button>
+  <button id="next" disabled>Suivant »</button>
+  <span id="status">Chargement…</span>
+</div>
+<div id="viewer"></div>
 
-  <script>
-  /* ---------- configuration ---------- */
-  const PDF_URL = 'pdf/livre.pdf';          // Chemin vers le PDF (attention à la casse)
-  const SPREAD  = 2;                       // nombre de pages montrées simultanément (gauche+droite)
-  /* ------------------------------------ */
+<!-- pdf.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js"></script>
+<script>
+const PDF_URL = 'pdf/livre.pdf';          // ← ton PDF (casse exacte)
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
 
-  pdfjsLib.GlobalWorkerOptions.workerSrc =
-      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+const viewer   = document.getElementById('viewer');
+const statusEl = document.getElementById('status');
+const prevBtn  = document.getElementById('prev');
+const nextBtn  = document.getElementById('next');
 
-  const viewer   = document.getElementById('viewer');
-  const statusEl = document.getElementById('status');
-  const prevBtn  = document.getElementById('prev');
-  const nextBtn  = document.getElementById('next');
+let pdfDoc      = null;
+let currentLeft = 1;                 // page impaire (gauche)
+let totalPages  = 0;
+let busy        = false;
 
-  let pdfDoc = null,
-      currentLeft = 1,                     // page de gauche (toujours impaire)
-      totalPages  = 0,
-      rendering   = false;
+/* ——— calcule un scale pour que 2 pages tiennent ——— */
+function scaleFor(page){
+  const maxW = window.innerWidth - 24;          // marge
+  const vp   = page.getViewport({scale:1});
+  return (maxW/2) / vp.width;                   // 2 pages par ligne
+}
 
-  /* Calcule un scale pour que deux pages tiennent en largeur */
-  function computeScale(page) {
-    const avail = Math.min(window.innerWidth, 1000) - 32; // marge
-    const vp    = page.getViewport({ scale: 1 });
-    return (avail / SPREAD) / vp.width;                   // divise la largeur par 2 pages
+/* ——— rend une paire de pages ——— */
+async function renderSpread(left){
+  busy = true; viewer.innerHTML='';
+  statusEl.textContent = `Pages ${left}-${Math.min(left+1,totalPages)} / ${totalPages}`;
+
+  for(let i=0;i<2;i++){
+    const num = left+i;  if(num>totalPages) break;
+    const page = await pdfDoc.getPage(num);
+    const sc   = scaleFor(page);
+    const vp   = page.getViewport({scale:sc});
+    const cvs  = document.createElement('canvas');
+    cvs.width  = vp.width;  cvs.height = vp.height;
+    viewer.appendChild(cvs);
+    await page.render({canvasContext:cvs.getContext('2d'),viewport:vp}).promise;
   }
+  prevBtn.disabled = (currentLeft<=1);
+  nextBtn.disabled = (currentLeft+1>=totalPages);
+  busy=false;
+}
 
-  /* Rendu d’un spread (2 pages) */
-  async function renderSpread(left) {
-    rendering = true;
-    viewer.innerHTML = '';
-    statusEl.textContent = `Affichage des pages ${left}-${Math.min(left+1,totalPages)} / ${totalPages}`;
+/* ——— navigation ——— */
+function go(dir){
+  if(busy) return;
+  const nextLeft = currentLeft + dir*2;
+  if(nextLeft<1 || nextLeft>totalPages) return;
+  currentLeft = nextLeft;
+  renderSpread(currentLeft);
+}
+prevBtn.onclick = ()=>go(-1);
+nextBtn.onclick = ()=>go(+1);
 
-    // Rendu de chaque page (gauche puis droite)
-    for (let i = 0; i < SPREAD; i++) {
-      const pageNum = left + i;
-      if (pageNum > totalPages) break;
-      const page   = await pdfDoc.getPage(pageNum);
-      const scale  = computeScale(page);
-      const vp     = page.getViewport({ scale });
-      const canvas = document.createElement('canvas');
-      const ctx    = canvas.getContext('2d');
-      canvas.width  = vp.width;
-      canvas.height = vp.height;
-      viewer.appendChild(canvas);
-      await page.render({ canvasContext: ctx, viewport: vp }).promise;
-    }
-    // état boutons
-    prevBtn.disabled = (currentLeft <= 1);
-    nextBtn.disabled = (currentLeft + SPREAD > totalPages);
-    rendering = false;
-  }
+/* ——— swipe mobile ——— */
+let x0=null;
+viewer.addEventListener('touchstart',e=>x0=e.touches[0].clientX);
+viewer.addEventListener('touchend',e=>{
+  if(x0===null) return;
+  const dx = x0 - e.changedTouches[0].clientX;
+  if(dx>50) go(+1);   // glisse vers la gauche -> pages suivantes
+  if(dx<-50)go(-1);   // glisse vers la droite -> pages précédentes
+  x0=null;
+});
 
-  /* Navigation */
-  function go(delta) {
-    if (rendering) return;
-    const newLeft = currentLeft + delta*SPREAD;
-    if (newLeft < 1 || newLeft > totalPages) return;
-    currentLeft = newLeft;
-    renderSpread(currentLeft);
-  }
+/* ——— chargement initial ——— */
+pdfjsLib.getDocument(PDF_URL).promise.then(pdf=>{
+  pdfDoc     = pdf;
+  totalPages = pdf.numPages;
+  renderSpread(currentLeft);
+}).catch(err=>{
+  statusEl.textContent='Erreur : '+err.message;
+  console.error(err);
+});
 
-  prevBtn.onclick = () => go(-1);
-  nextBtn.onclick = () => go( 1);
-
-  /* Swipe mobile */
-  let startX = null;
-  viewer.addEventListener('touchstart', e => startX = e.touches[0].clientX);
-  viewer.addEventListener('touchend',   e => {
-    if (startX === null) return;
-    const endX = e.changedTouches[0].clientX;
-    const diff = startX - endX;
-    if (diff > 50)  go(+1);           // swipe gauche → droite (aller suivant)
-    if (diff < -50) go(-1);           // swipe droite → gauche (aller précédent)
-    startX = null;
-  });
-
-  /* Chargement initial */
-  pdfjsLib.getDocument(PDF_URL).promise.then(pdf => {
-    pdfDoc    = pdf;
-    totalPages = pdf.numPages;
-    currentLeft = 1;
-    prevBtn.disabled = false;
-    nextBtn.disabled = (SPREAD >= totalPages);
-    renderSpread(currentLeft);
-  }).catch(err => {
-    statusEl.textContent = 'Erreur : ' + err.message;
-    console.error(err);
-  });
-
-  /* Recalcul du scale quand on pivote / redimensionne */
-  window.addEventListener('resize', () => renderSpread(currentLeft));
-  </script>
+/* ——— re‑scale si rotation / resize ——— */
+window.addEventListener('resize',()=>renderSpread(currentLeft));
+</script>
 </body>
 </html>
