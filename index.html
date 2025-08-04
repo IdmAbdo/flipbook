@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <title>Mon Livre PDF – Flipbook</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <style>
     body{margin:0;background:#111;color:#fff;font-family:system-ui,sans-serif}
     h1{text-align:center;margin:12px 0}
@@ -13,17 +14,13 @@
     #status{margin-left:6px;align-self:center}
     #container{display:flex;justify-content:center}
     #flipbook{background:#222}
-    /* plein-écran — occupe tout l’espace */
     :fullscreen #flipbook{width:100vw !important;height:100vh !important}
     canvas{background:#fff}
   </style>
+
   <!-- dépendances -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <!-- jsDelivr -->
-<script src="https://cdn.jsdelivr.net/npm/turn.js@4.1.0/dist/turn.min.js"></script>
-
-<!-- ou unpkg -->
-<!-- <script src="https://unpkg.com/turn.js@4.1.0/dist/turn.min.js"></script> -->
+  <script src="libs/turn.min.js"></script> <!-- ← hébergé chez toi -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js"></script>
 </head>
@@ -37,105 +34,4 @@
   <span id="status">Chargement…</span>
 </div>
 
-<div id="container">
-  <div id="flipbook"></div>
-</div>
-
-<script>
-const PDF_URL = 'pdf/livre.pdf';    // ← adapte si besoin
-pdfjsLib.GlobalWorkerOptions.workerSrc =
-  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
-
-const flip = $('#flipbook');
-const statusEl = document.getElementById('status');
-const prevBtn  = document.getElementById('prev');
-const nextBtn  = document.getElementById('next');
-const fsBtn    = document.getElementById('fs');
-
-let pdfDoc = null, totalPages = 0;
-
-/* taille du canvas : ajusté pour deux pages */
-function scaleFor(viewport){
-  const maxW = Math.min(window.innerWidth, 1000) - 40; // marge
-  return (maxW/2) / viewport.width;
-}
-
-/* crée un canvas pour une page */
-async function makePageCanvas(pageNum){
-  const page = await pdfDoc.getPage(pageNum);
-  const scale = scaleFor(page.getViewport({scale:1}));
-  const vp = page.getViewport({scale});
-  const canvas = document.createElement('canvas');
-  canvas.width = vp.width;
-  canvas.height = vp.height;
-  await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
-  return canvas;
-}
-
-/* charge tout le PDF en mémoire (peut être lourd !) */
-async function loadPDF(){
-  statusEl.textContent='Pré-rendu des pages…';
-  pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
-  totalPages = pdfDoc.numPages;
-  const pages=[];
-
-  for(let i=1;i<=totalPages;i++){
-    pages.push(await makePageCanvas(i));
-  }
-
-  // injecter 2 canvases par feuille (turn.js s’attend à des div.page)
-  pages.forEach(cv=>{
-    const div=document.createElement('div');
-    div.className='page';
-    div.appendChild(cv);
-    flip.append(div);
-  });
-
-  // init turn.js
-  const firstCanvas = pages[0];
-  const pageW = firstCanvas.width,
-        pageH = firstCanvas.height;
-  flip.turn({
-    width: pageW*2,       // deux pages
-    height: pageH,
-    autoCenter:true,
-    gradients:true,
-    duration:600
-  });
-
-  prevBtn.disabled=false;
-  nextBtn.disabled=false;
-  statusEl.textContent=`${totalPages} pages chargées`;
-
-  prevBtn.onclick = ()=>flip.turn('previous');
-  nextBtn.onclick = ()=>flip.turn('next');
-
-  // swipe mobile
-  let x0=null;
-  flip.on('touchstart',e=>x0=e.originalEvent.touches[0].clientX);
-  flip.on('touchend',e=>{
-    if(x0===null) return;
-    const dx = x0 - e.originalEvent.changedTouches[0].clientX;
-    if(dx>50) flip.turn('next');
-    if(dx<-50)flip.turn('previous');
-    x0=null;
-  });
-}
-
-/* plein-écran */
-fsBtn.onclick = ()=>{
-  const el=document.documentElement;
-  if(!document.fullscreenElement){
-    (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen).call(el);
-  }else{
-    (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen).call(document);
-  }
-};
-
-loadPDF().catch(err=>{
-  statusEl.textContent='Erreur : '+err.message;
-  console.error(err);
-});
-</script>
-</body>
-</html>
+<div id="container"><div id="flipbook"></div></div
