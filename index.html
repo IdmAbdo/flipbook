@@ -12,15 +12,18 @@
     .btn { padding:0.5rem 1rem; background:#444; color:#fff; border:none; cursor:pointer; border-radius:5px; margin:0 5px; }
     .btn:disabled { background: #222; cursor: not-allowed; }
   </style>
-  <!-- jQuery (doit venir avant turn.js) -->
+
+  <!-- 1. jQuery -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"
     integrity="sha256-/xUj+3OJ+Y5yExlq6GSYGSHk7tPXikynSi3RvD/CM="
     crossorigin="anonymous"></script>
-  <!-- turn.js -->
+
+  <!-- 2. turn.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"
     integrity="sha512-FgSeBrB8jQ1Hrs0x6rM0+ASkku/EfLmiJ5iI2GmWQ3Gzy3Wry0ZFe6Vjw7rnSTZwaBsqkCUb/Dk0zBj2zOiJ1g=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-  <!-- pdf.js -->
+
+  <!-- 3. pdf.js -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"
     integrity="sha512-3xq9QiuEyQ7TpJQYXcUNrwq30kxqvXyGfIw1MJq2X/5clml0Uu6wUuMXOoGNV7gM+PO8IW4mTQbJHap9sK+3uw=="
     crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -39,15 +42,14 @@
   <div id="flipbook"></div>
 
   <script>
-    // Chemin relatif vers ton PDF ; attention à la casse exacte et à l'emplacement.
-    const PDF_URL = "pdf/livre.pdf"; // vérifier que /pdf/livre.pdf existe dans le repo
+    const PDF_URL = "pdf/livre.pdf"; // sensible à la casse
 
     const flipbookEl = $("#flipbook");
     const prevBtn = document.getElementById("prev");
     const nextBtn = document.getElementById("next");
     const statusEl = document.getElementById("status");
 
-    // Configurer pdf.js
+    // pdf.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js";
 
     let pdfDoc = null;
@@ -74,7 +76,6 @@
         const totalPages = pdfDoc.numPages;
         statusEl.textContent = `Pages : ${totalPages}`;
 
-        // Créer toutes les pages et les insérer
         const pages = [];
         for (let i = 1; i <= totalPages; i++) {
           const pageDiv = await createPageCanvas(i);
@@ -82,7 +83,6 @@
         }
         pages.forEach(p => flipbookEl.append(p));
 
-        // Initialiser turn.js
         flipbookEl.turn({
           width: flipbookEl.width(),
           height: flipbookEl.height(),
@@ -95,10 +95,10 @@
         nextBtn.disabled = false;
         prevBtn.onclick = () => flipbookEl.turn("previous");
         nextBtn.onclick = () => flipbookEl.turn("next");
-        statusEl.textContent = `Prêt — ${totalPages} pages chargées`;
+        statusEl.textContent = `Prêt — ${totalPages} pages`;
       } catch (e) {
         console.error(e);
-        statusEl.textContent = "Erreur de chargement du PDF : " + (e.message || e);
+        statusEl.textContent = "Erreur : " + (e.message || e);
       }
     }
 
