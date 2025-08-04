@@ -19,4 +19,119 @@
   </style>
   <!-- dépendances -->
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js"></script>
+</head>
+<body>
+
+<h1>Mon Livre PDF</h1>
+<div class="bar">
+  <button id="prev" disabled>« Précédent</button>
+  <button id="next" disabled>Suivant »</button>
+  <button id="fs">Plein écran ⤢</button>
+  <span id="status">Chargement…</span>
+</div>
+
+<div id="container">
+  <div id="flipbook"></div>
+</div>
+
+<script>
+const PDF_URL = 'pdf/livre.pdf';    // ← adapte si besoin
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+
+const flip = $('#flipbook');
+const statusEl = document.getElementById('status');
+const prevBtn  = document.getElementById('prev');
+const nextBtn  = document.getElementById('next');
+const fsBtn    = document.getElementById('fs');
+
+let pdfDoc = null, totalPages = 0;
+
+/* taille du canvas : ajusté pour deux pages */
+function scaleFor(viewport){
+  const maxW = Math.min(window.innerWidth, 1000) - 40; // marge
+  return (maxW/2) / viewport.width;
+}
+
+/* crée un canvas pour une page */
+async function makePageCanvas(pageNum){
+  const page = await pdfDoc.getPage(pageNum);
+  const scale = scaleFor(page.getViewport({scale:1}));
+  const vp = page.getViewport({scale});
+  const canvas = document.createElement('canvas');
+  canvas.width = vp.width;
+  canvas.height = vp.height;
+  await page.render({canvasContext:canvas.getContext('2d'),viewport:vp}).promise;
+  return canvas;
+}
+
+/* charge tout le PDF en mémoire (peut être lourd !) */
+async function loadPDF(){
+  statusEl.textContent='Pré-rendu des pages…';
+  pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
+  totalPages = pdfDoc.numPages;
+  const pages=[];
+
+  for(let i=1;i<=totalPages;i++){
+    pages.push(await makePageCanvas(i));
+  }
+
+  // injecter 2 canvases par feuille (turn.js s’attend à des div.page)
+  pages.forEach(cv=>{
+    const div=document.createElement('div');
+    div.className='page';
+    div.appendChild(cv);
+    flip.append(div);
+  });
+
+  // init turn.js
+  const firstCanvas = pages[0];
+  const pageW = firstCanvas.width,
+        pageH = firstCanvas.height;
+  flip.turn({
+    width: pageW*2,       // deux pages
+    height: pageH,
+    autoCenter:true,
+    gradients:true,
+    duration:600
+  });
+
+  prevBtn.disabled=false;
+  nextBtn.disabled=false;
+  statusEl.textContent=`${totalPages} pages chargées`;
+
+  prevBtn.onclick = ()=>flip.turn('previous');
+  nextBtn.onclick = ()=>flip.turn('next');
+
+  // swipe mobile
+  let x0=null;
+  flip.on('touchstart',e=>x0=e.originalEvent.touches[0].clientX);
+  flip.on('touchend',e=>{
+    if(x0===null) return;
+    const dx = x0 - e.originalEvent.changedTouches[0].clientX;
+    if(dx>50) flip.turn('next');
+    if(dx<-50)flip.turn('previous');
+    x0=null;
+  });
+}
+
+/* plein-écran */
+fsBtn.onclick = ()=>{
+  const el=document.documentElement;
+  if(!document.fullscreenElement){
+    (el.requestFullscreen||el.webkitRequestFullscreen||el.msRequestFullscreen).call(el);
+  }else{
+    (document.exitFullscreen||document.webkitExitFullscreen||document.msExitFullscreen).call(document);
+  }
+};
+
+loadPDF().catch(err=>{
+  statusEl.textContent='Erreur : '+err.message;
+  console.error(err);
+});
+</script>
+</body>
+</html>
