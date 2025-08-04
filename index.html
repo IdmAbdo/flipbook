@@ -1,60 +1,104 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8" />
-<title>Flipbook PDF</title>
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<!-- jQuery -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js" integrity="" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<!-- pdf.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js" integrity="" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<script>
-  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
-</script>
-<!-- turn.js from CDN -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js" integrity="" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-<style>
-body { font-family: system-ui,sans-serif; background:#f0f0f0; margin:0; padding:1rem;}
-h1{ text-align:center;}
-#flipbook { width:800px; height:500px; margin: auto; }
-.page { background:#fff; border:1px solid #ccc; width:390px; height:480px; padding:10px; box-sizing:border-box; overflow:auto; }
-#container { display:flex; justify-content:center; }
-</style>
+  <meta charset="utf-8" />
+  <title>Mon Livre PDF</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    body { margin:0; font-family: system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:#111; color:#fff; }
+    #flipbook { width: 90%; height: 80vh; margin: 2rem auto; }
+    .page { background: #fff; color: #000; }
+    .controls { text-align:center; margin-top:0.5rem; }
+    .btn { padding:0.5rem 1rem; background:#2d89ef; color:#fff; border:none; cursor:pointer; border-radius:5px; margin:0 5px; }
+    .btn:disabled { background: #555; cursor: not-allowed; }
+  </style>
+  <!-- pdf.js depuis CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js" integrity="sha512-3xq9QiuEyQ7TpJQYXcUNrwq30kxqvXyGfIw1MJq2X/5clml0Uu6wUuMXOoGNV7gM+PO8IW4mTQbJHap9sK+3uw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js" integrity="sha512-+fsg9xHmrz1+itL/l9K2pwsWZZ6+VCxTIkj/0t9J+mDmTLq0Pe5WZYC1GJpy2G+eNLxFhA0zHDdIHKcYTbQj8g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <!-- turn.js (version hébergée) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js" integrity="sha512-FgSeBrB8jQ1Hrs0x6rM0+ASkku/EfLmiJ5iI2GmWQ3Gzy3Wry0ZFe6Vjw7rnSTZwaBsqkCUb/Dk0zBj2zOiJ1g==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
-  <h1>Mon Livre PDF</h1>
-  <div id="flipbook">
-    <div class="page"><p>Chargement…</p></div>
+
+  <h1 style="text-align:center; margin-top:1rem;">Mon Livre PDF</h1>
+  <div class="controls">
+    <button id="prev" class="btn" disabled>« Précédent</button>
+    <button id="next" class="btn" disabled>Suivant »</button>
+    <span id="status">Chargement...</span>
   </div>
+  <div id="flipbook"></div>
+
   <script>
+    // PDF à charger (chemin relatif)
+    const PDF_URL = "pdf/livre.pdf";
+
+    const flipbookEl = document.getElementById("flipbook");
+    const prevBtn = document.getElementById("prev");
+    const nextBtn = document.getElementById("next");
+    const statusEl = document.getElementById("status");
+
+    // Configurer pdf.js
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js";
+
+    let pdfDoc = null;
+    let totalPages = 0;
+
+    function createPageCanvas(pageNum) {
+      return pdfDoc.getPage(pageNum).then(page => {
+        const viewport = page.getViewport({ scale: 1.2 });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width;
+        canvas.height = viewport.height;
+        const ctx = canvas.getContext("2d");
+        return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(() => {
+          const wrapper = document.createElement("div");
+          wrapper.className = "page";
+          wrapper.style.width = viewport.width + "px";
+          wrapper.style.height = viewport.height + "px";
+          wrapper.appendChild(canvas);
+          return wrapper;
+        });
+      });
+    }
+
     async function loadPDF() {
       try {
-        const pdf = await pdfjsLib.getDocument('pdf/livre.pdf').promise;
+        pdfDoc = await pdfjsLib.getDocument(PDF_URL).promise;
+        totalPages = pdfDoc.numPages;
+        statusEl.textContent = `Pages : ${totalPages}`;
+        // Préparer deux pages par feuille (comme un flipbook)
         const pages = [];
-        for (let i=1;i<=pdf.numPages;i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          const str = textContent.items.map(it=>it.str).join('\n');
-          const div = document.createElement('div');
-          div.className='page';
-          div.innerHTML='<h3>Page '+i+'</h3><pre>'+str+'</pre>';
-          pages.push(div);
+        for (let i = 1; i <= totalPages; i++) {
+          const pageDiv = await createPageCanvas(i);
+          pages.push(pageDiv);
         }
-        const fb = document.getElementById('flipbook');
-        fb.innerHTML='';
-        pages.forEach(p=>fb.appendChild(p));
-        // initialize turn.js
-        $('#flipbook').turn({
-          width: 800,
-          height: 500,
-          autoCenter: true
+        // Ajouter dans le flipbook dans l'ordre
+        pages.forEach(p => flipbookEl.appendChild(p));
+        // Initialiser turn.js
+        $("#flipbook").turn({
+          width: flipbookEl.scrollWidth,
+          height: flipbookEl.scrollHeight,
+          autoCenter: true,
+          gradients: true,
+          duration: 600
         });
-      } catch(e) {
-        document.getElementById('flipbook').innerHTML='<div class="page"><p style="color:red;">Erreur: '+e.message+'</p></div>';
+        prevBtn.disabled = false;
+        nextBtn.disabled = false;
+        // navigation
+        prevBtn.onclick = () => $("#flipbook").turn("previous");
+        nextBtn.onclick = () => $("#flipbook").turn("next");
+        statusEl.textContent = `Prêt — ${totalPages} pages chargées`;
+      } catch (e) {
         console.error(e);
+        statusEl.textContent = "Erreur de chargement du PDF : " + e.message;
       }
     }
+
+    // Initialisation
     loadPDF();
   </script>
+
+  <!-- jQuery requis par turn.js -->
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJ+Y5yExlq6GSYGSHk7tPXikynSi3RvD/CM=" crossorigin="anonymous"></script>
 </body>
 </html>
