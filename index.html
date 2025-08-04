@@ -33,12 +33,16 @@
       display: flex;
       justify-content: center;
       align-items: center;
+      /* Default: desktop double page */
+      width: 840px;
+      height: 600px;
+      transition: width 0.3s, height 0.3s;
     }
-    @media (max-width: 850px) {
-      #flipbook { width: 95vw !important; height: 65vw !important; max-width: 100vw; }
+    @media (max-width: 900px) {
+      #flipbook { width: 98vw !important; height: 67vw !important; max-width: 100vw; }
     }
     @media (max-width: 600px) {
-      #flipbook { width: 100vw !important; height: 65vw !important; }
+      #flipbook { width: 99vw !important; height: 135vw !important; }
       button { font-size: 15px; }
     }
   </style>
@@ -62,11 +66,18 @@
     // PDF.js worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
+    // Taille d'une page (portrait)
     const PAGE_WIDTH = 420, PAGE_HEIGHT = 600;
     const PDF_URL = "pdf/livre.pdf";
     let pdfDoc = null, totalPages = 0;
 
-    // --- Correction navigation ---
+    // -- Mode d'affichage : single (portrait/mobile), double (paysage/desktop)
+    function getDisplayMode() {
+      // Si largeur écran < hauteur (portrait) OU écran étroit (mobile) -> single
+      return window.innerWidth < 700 || window.innerHeight > window.innerWidth ? "single" : "double";
+    }
+
+    // -- Corrige la navigation (désactive au début/fin)
     function updateNav() {
       const currentPage = $("#flipbook").turn("page");
       const lastPage = $("#flipbook").turn("pages");
@@ -74,19 +85,33 @@
       $("#next").prop("disabled", currentPage >= lastPage);
     }
 
-    // Crée le flipbook
-    function initFlipbook(total) {
+    // --- Re-crée le flipbook selon la taille d'écran
+    function createFlipbook(canvases) {
+      let displayMode = getDisplayMode();
+      // Détruit l'ancien flipbook s'il existe
+      if ($("#flipbook").data("turn")) $("#flipbook").turn("destroy").empty();
+      // Ajoute toutes les pages
+      canvases.forEach(canvas => $("#flipbook").append(canvas));
+      // Définit la taille et l'affichage
+      let width = displayMode === "double" ? PAGE_WIDTH * 2 : PAGE_WIDTH;
+      let height = PAGE_HEIGHT;
+      $("#flipbook").css({width: width + "px", height: height + "px"});
+      // Initialise turn.js
       $("#flipbook").turn({
-        width: PAGE_WIDTH * 2,
-        height: PAGE_HEIGHT,
+        width: width,
+        height: height,
         autoCenter: true,
         acceleration: true,
-        display: "double",
+        display: displayMode,
         gradients: true,
         elevation: 50,
         when: {
           turned: function(e, page) {
-            $("#status").text(`Page ${(page-1) * 2 + 1} - ${Math.min(page*2, totalPages)} / ${totalPages}`);
+            // Affichage du statut (ex : page 2-3/11 ou 3/11)
+            let t = (displayMode === "double") ?
+              `Pages ${page}-${Math.min(page+1,totalPages)} / ${totalPages}` :
+              `Page ${page} / ${totalPages}`;
+            $("#status").text(t);
             updateNav();
           }
         }
@@ -94,7 +119,7 @@
       updateNav();
     }
 
-    // Plein écran
+    // -- Plein écran
     function openFullscreen(elem) {
       if (elem.requestFullscreen) elem.requestFullscreen();
       else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
@@ -104,17 +129,15 @@
       openFullscreen(document.getElementById('flipbook'));
     };
 
-    // --- Navigation boutons (corrigé) ---
+    // Navigation boutons
     $("#prev").on("click", function() {
       $("#flipbook").turn("previous");
-      updateNav();
     });
     $("#next").on("click", function() {
       $("#flipbook").turn("next");
-      updateNav();
     });
 
-    // Rendu d'une page PDF vers Canvas
+    // -- Rendu PDF -> Canvas
     function renderPage(num) {
       return pdfDoc.getPage(num).then(function(page) {
         const canvas = document.createElement("canvas");
@@ -128,7 +151,8 @@
       });
     }
 
-    // Charge le PDF et ajoute chaque page dans le flipbook
+    // -- Charge le PDF et prépare le flipbook
+    let canvasesGlobal = null;
     pdfjsLib.getDocument(PDF_URL).promise.then(function(pdf) {
       pdfDoc = pdf;
       totalPages = pdf.numPages;
@@ -136,13 +160,22 @@
       let promises = [];
       for(let i=1; i<=totalPages; i++) promises.push(renderPage(i));
       Promise.all(promises).then(function(canvases) {
-        canvases.forEach(canvas => $("#flipbook").append(canvas));
-        initFlipbook(totalPages);
+        canvasesGlobal = canvases;
+        createFlipbook(canvases);
         $("#status").text(`${totalPages} pages`);
       });
     }).catch(function(err){
       $("#status").text("Erreur PDF : " + err.message);
     });
+
+    // -- Responsive : recrée le flipbook au changement d’orientation ou redimensionnement
+    window.addEventListener('resize', function() {
+      if(canvasesGlobal) createFlipbook(canvasesGlobal);
+    });
+    window.addEventListener('orientationchange', function() {
+      if(canvasesGlobal) createFlipbook(canvasesGlobal);
+    });
+
   </script>
 </body>
 </html>
