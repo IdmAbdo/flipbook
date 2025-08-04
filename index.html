@@ -5,132 +5,120 @@
   <title>Mon Livre PDF</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
   <style>
-    body { background:#111; color:#fff; font-family: system-ui, sans-serif; margin:0; padding:0; }
-    h1 { text-align:center; margin:16px 0; }
-    .nav { display: flex; justify-content: center; gap: 8px; margin-bottom: 8px; }
-    button { padding: 8px 16px; background: #444; border: none; color: #fff; border-radius: 4px; cursor: pointer; }
-    button:disabled { opacity: 0.5; cursor: not-allowed; }
-    #viewer { display: flex; justify-content: center; padding: 8px; flex-wrap: wrap; }
-    canvas { box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5); max-width: 100%; height: auto; margin: 8px; }
-    #status { margin-left: 8px; align-self: center; }
+    body{margin:0;background:#111;color:#fff;font-family:system-ui,sans-serif}
+    h1{text-align:center;margin:16px 0}
+    .nav{display:flex;justify-content:center;gap:8px;margin-bottom:8px}
+    button{padding:8px 16px;background:#444;border:none;color:#fff;border-radius:4px;cursor:pointer}
+    button:disabled{opacity:.4;cursor:not-allowed}
+    #viewer{display:flex;justify-content:center;gap:8px;flex-wrap:nowrap;overflow:hidden;padding:8px}
+    canvas{box-shadow:0 4px 16px rgba(0,0,0,.5);background:#fff}
+    #status{margin-left:6px;align-self:center}
   </style>
-
-  <!-- pdf.js depuis CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js"></script>
-  <!-- jQuery -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <!-- turn.js -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/turn.js/4.1.0/turn.min.js"></script>
 </head>
 <body>
-
   <h1>Mon Livre PDF</h1>
   <div class="nav">
-    <button id="prev" disabled>« Précédent</button>
-    <button id="next" disabled>Suivant »</button>
-    <span id="status">Chargement...</span>
+    <button id="prev" disabled>« Précédent </button>
+    <button id="next" disabled>Suivant »</button>
+    <span id="status">Chargement…</span>
   </div>
   <div id="viewer"></div>
 
+  <!-- pdf.js (UMD) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js"></script>
+
   <script>
-    const PDF_URL = 'pdf/livre.pdf'; // Assure-toi que le chemin est correct
-    const viewer = document.getElementById('viewer');
-    const status = document.getElementById('status');
-    const prevBtn = document.getElementById('prev');
-    const nextBtn = document.getElementById('next');
-    let pdfDoc = null;
-    let currentPage = 1;
-    let pageRendering = false;
-    let totalPages = 0;
+  /* ---------- configuration ---------- */
+  const PDF_URL = 'pdf/livre.pdf';          // Chemin vers le PDF (attention à la casse)
+  const SPREAD  = 2;                       // nombre de pages montrées simultanément (gauche+droite)
+  /* ------------------------------------ */
 
-    // Indiquer où est le worker pour pdf.js
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+  pdfjsLib.GlobalWorkerOptions.workerSrc =
+      'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
 
-    // Affichage de la page
-    async function renderPage(pageNum) {
-      pageRendering = true;
-      status.textContent = `Affichage de la page ${pageNum} / ${totalPages}`;
+  const viewer   = document.getElementById('viewer');
+  const statusEl = document.getElementById('status');
+  const prevBtn  = document.getElementById('prev');
+  const nextBtn  = document.getElementById('next');
 
-      // Clear précédentes pages
-      viewer.innerHTML = '';
-      
-      const page = await pdfDoc.getPage(pageNum);
-      const viewport = page.getViewport({ scale: getScale() });
+  let pdfDoc = null,
+      currentLeft = 1,                     // page de gauche (toujours impaire)
+      totalPages  = 0,
+      rendering   = false;
 
+  /* Calcule un scale pour que deux pages tiennent en largeur */
+  function computeScale(page) {
+    const avail = Math.min(window.innerWidth, 1000) - 32; // marge
+    const vp    = page.getViewport({ scale: 1 });
+    return (avail / SPREAD) / vp.width;                   // divise la largeur par 2 pages
+  }
+
+  /* Rendu d’un spread (2 pages) */
+  async function renderSpread(left) {
+    rendering = true;
+    viewer.innerHTML = '';
+    statusEl.textContent = `Affichage des pages ${left}-${Math.min(left+1,totalPages)} / ${totalPages}`;
+
+    // Rendu de chaque page (gauche puis droite)
+    for (let i = 0; i < SPREAD; i++) {
+      const pageNum = left + i;
+      if (pageNum > totalPages) break;
+      const page   = await pdfDoc.getPage(pageNum);
+      const scale  = computeScale(page);
+      const vp     = page.getViewport({ scale });
       const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-
+      const ctx    = canvas.getContext('2d');
+      canvas.width  = vp.width;
+      canvas.height = vp.height;
       viewer.appendChild(canvas);
-
-      const renderContext = {
-        canvasContext: context,
-        viewport: viewport
-      };
-
-      await page.render(renderContext).promise;
-
-      pageRendering = false;
-      prevBtn.disabled = currentPage <= 1;
-      nextBtn.disabled = currentPage >= totalPages;
+      await page.render({ canvasContext: ctx, viewport: vp }).promise;
     }
+    // état boutons
+    prevBtn.disabled = (currentLeft <= 1);
+    nextBtn.disabled = (currentLeft + SPREAD > totalPages);
+    rendering = false;
+  }
 
-    function queueRenderPage(num) {
-      if (pageRendering) {
-        setTimeout(() => queueRenderPage(num), 100);
-      } else {
-        renderPage(num);
-      }
-    }
+  /* Navigation */
+  function go(delta) {
+    if (rendering) return;
+    const newLeft = currentLeft + delta*SPREAD;
+    if (newLeft < 1 || newLeft > totalPages) return;
+    currentLeft = newLeft;
+    renderSpread(currentLeft);
+  }
 
-    function getScale() {
-      // Si l'écran est large, on affiche 2 pages par ligne
-      return window.innerWidth > 768 ? 1.5 : 1; // Ajuster la taille selon l'écran
-    }
+  prevBtn.onclick = () => go(-1);
+  nextBtn.onclick = () => go( 1);
 
-    prevBtn.addEventListener('click', () => {
-      if (currentPage <= 1) return;
-      currentPage--;
-      queueRenderPage(currentPage);
-    });
+  /* Swipe mobile */
+  let startX = null;
+  viewer.addEventListener('touchstart', e => startX = e.touches[0].clientX);
+  viewer.addEventListener('touchend',   e => {
+    if (startX === null) return;
+    const endX = e.changedTouches[0].clientX;
+    const diff = startX - endX;
+    if (diff > 50)  go(+1);           // swipe gauche → droite (aller suivant)
+    if (diff < -50) go(-1);           // swipe droite → gauche (aller précédent)
+    startX = null;
+  });
 
-    nextBtn.addEventListener('click', () => {
-      if (currentPage >= totalPages) return;
-      currentPage++;
-      queueRenderPage(currentPage);
-    });
+  /* Chargement initial */
+  pdfjsLib.getDocument(PDF_URL).promise.then(pdf => {
+    pdfDoc    = pdf;
+    totalPages = pdf.numPages;
+    currentLeft = 1;
+    prevBtn.disabled = false;
+    nextBtn.disabled = (SPREAD >= totalPages);
+    renderSpread(currentLeft);
+  }).catch(err => {
+    statusEl.textContent = 'Erreur : ' + err.message;
+    console.error(err);
+  });
 
-    // Charger le PDF
-    pdfjsLib.getDocument(PDF_URL).promise.then(function(pdf) {
-      pdfDoc = pdf;
-      totalPages = pdfDoc.numPages;
-      status.textContent = `PDF chargé (${totalPages} pages)`;
-      prevBtn.disabled = false;
-      nextBtn.disabled = false;
-      renderPage(currentPage);
-    }).catch(function(err){
-      status.textContent = 'Erreur de chargement du PDF : ' + err.message;
-      console.error(err);
-    });
-
-    // Fonction pour permettre de swiper (glisser) entre les pages sur mobile
-    let startTouch = 0;
-    viewer.addEventListener('touchstart', (e) => {
-      startTouch = e.touches[0].clientX;
-    });
-
-    viewer.addEventListener('touchend', (e) => {
-      const endTouch = e.changedTouches[0].clientX;
-      if (startTouch - endTouch > 50 && currentPage < totalPages) {
-        currentPage++;
-        queueRenderPage(currentPage);
-      } else if (endTouch - startTouch > 50 && currentPage > 1) {
-        currentPage--;
-        queueRenderPage(currentPage);
-      }
-    });
+  /* Recalcul du scale quand on pivote / redimensionne */
+  window.addEventListener('resize', () => renderSpread(currentLeft));
   </script>
 </body>
 </html>
