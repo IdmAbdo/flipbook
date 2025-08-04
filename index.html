@@ -1,89 +1,44 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<title>Mon Livre PDF – Flipbook</title>
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<!DOCTYPE html><html lang="fr"><meta charset="utf-8">
+<title>Flipbook</title><meta name=viewport content="width=device-width,initial-scale=1">
+<style>body{margin:0;background:#111;color:#fff;font-family:sans-serif;overflow:hidden}
+h1{text-align:center;margin:8px 0;font-size:clamp(22px,6vw,36px)}
+.bar{display:flex;justify-content:center;gap:8px;flex-wrap:wrap}
+button{padding:8px 16px;background:#444;border:0;color:#fff;border-radius:4px}
+button:disabled{opacity:.4}#status{align-self:center}
+#wrap{display:flex;justify-content:center;height:calc(100vh - 96px)}
+#flip{display:none;background:#222}</style>
+<body><h1>Mon Livre PDF</h1>
+<div class=bar><button id=p>&laquo; Précédent</button><button id=n>Suivant &raquo;</button><button id=fs>Plein&nbsp;écran&nbsp;⤢</button><span id=status>Chargement…</span></div>
+<div id=wrap><div id=flip></div></div>
 
-<style>
-  body{margin:0;background:#111;color:#fff;font-family:system-ui,sans-serif;overflow:hidden}
-  h1{text-align:center;margin:10px 0;font-size:clamp(22px,6vw,38px)}
-  .bar{display:flex;justify-content:center;gap:8px;margin-bottom:4px;flex-wrap:wrap}
-  button{padding:8px 16px;background:#444;border:none;color:#fff;border-radius:5px;cursor:pointer;font-size:15px}
-  button:disabled{opacity:.4;cursor:not-allowed}
-  #status{margin-left:6px;align-self:center;white-space:nowrap}
-  #container{display:flex;justify-content:center;height:calc(100vh - 110px)}
-  #flipbook{background:#222;display:none}
-  canvas{background:#fff}
-  :fullscreen #flipbook{width:100vw!important;height:100vh!important}
-</style>
-
-<!-- jQuery -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- turn.js local -->
+<script src="libs/jquery.min.js"></script>
 <script src="libs/turn.min.js"></script>
-<!-- pdf.js -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js"></script>
-</head>
-<body>
-
-<h1>Mon Livre PDF</h1>
-<div class="bar">
-  <button id="prev" disabled>« Précédent</button>
-  <button id="next" disabled>Suivant »</button>
-  <button id="fs">Plein écran ⤢</button>
-  <span  id="status">Chargement…</span>
-</div>
-
-<div id="container"><div id="flipbook"></div></div>
-
+<script src="libs/pdf.min.js"></script>
+<script src="libs/pdf.worker.min.js"></script>
 <script>
-/* ------------- config ------------- */
-const PDF_URL = 'pdf/livre.pdf';          // chemin de ton PDF
-/* ---------------------------------- */
+pdfjsLib.GlobalWorkerOptions.workerSrc='libs/pdf.worker.min.js';
+const url='pdf/livre.pdf',flip=$("#flip"),s=$("#status"),p=$("#p"),n=$("#n");
+let doc,total,zoom=1;
 
-pdfjsLib.GlobalWorkerOptions.workerSrc =
- 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.14.305/pdf.worker.min.js';
+const two=()=>innerWidth>=768||matchMedia('(orientation:landscape)').matches;
+function scale(v){const W=innerWidth-32,H=innerHeight-96,pp=two()?2:1;
+const byW=(W/pp)/v.width,byH=H/v.height;return(pp==1?byW:Math.min(byW,byH))*zoom}
 
-const flip     = $('#flipbook'),
-      statusEl = $('#status'),
-      prevBtn  = $('#prev'),
-      nextBtn  = $('#next'),
-      fsBtn    = $('#fs');
+async function page(i){
+ const pg=await doc.getPage(i),v0=pg.getViewport({scale:1}),
+ sc=scale(v0),vp=pg.getViewport({scale:sc}),c=document.createElement('canvas');
+ c.width=vp.width;c.height=vp.height;
+ await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;return c;}
 
-let pdfDoc,totalPages,zoom=1;
-
-/* double page si large : ≥ 768 px ou orientation paysage */
-function doubleMode(){
-  return window.innerWidth >= 768 || window.matchMedia('(orientation: landscape)').matches;
-}
-
-/* ——— ÉCHELLE ——— */
-function scaleFor(vp){
-  const header = document.querySelector('.bar').offsetHeight + 40;
-  const availW = window.innerWidth  - 32;          // marges
-  const availH = window.innerHeight - header;
-  const pages  = doubleMode() ? 2 : 1;
-
-  const byW = (availW / pages) / vp.width;
-  const byH =  availH            / vp.height;
-
-  /* 1 page en portrait → remplir en largeur ; 2 pages → min(byW,byH) */
-  return (pages === 1 ? byW : Math.min(byW,byH)) * zoom;
-}
-
-/* canvas d’une page */
-async function renderPage(n){
-  const page = await pdfDoc.getPage(n);
-  const vp0  = page.getViewport({scale:1});
-  const sc   = scaleFor(vp0);
-  const vp   = page.getViewport({scale:sc});
-  const c    = document.createElement('canvas');
-  c.width  = vp.width;
-  c.height = vp.height;
-  await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
-  return c;
-}
-
-/* (re)
+async function build(){
+ try{flip.turn('destroy').empty()}catch{} zoom=1;s.text('Chargement…');
+ if(!doc){doc=await pdfjsLib.getDocument(url).promise;total=doc.numPages;}
+ for(let i=1;i<=total;i++)flip.append($('<div>').append(await page(i)));
+ const c=flip.find('canvas')[0];flip.turn({display:two()?'double':'single',
+ width:c.width*(two()?2:1),height:c.height,autoCenter:!0}).show();
+ s.text(total+' pages');p.prop('disabled',!1);n.prop('disabled',!1);}
+p.on('click',()=>flip.turn('previous'));n.on('click',()=>flip.turn('next'));
+flip.on('dblclick',()=>{zoom=zoom==1?1.4:1;build()});
+fs.onclick=()=>{(document.fullscreenElement?document.exitFullscreen:document.documentElement.requestFullscreen)();}
+addEventListener('resize',build);build();
+</script>
