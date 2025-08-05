@@ -62,7 +62,7 @@
 </head>
 <body>
 
-  <h1>Mon Livre PDF V1.0.5</h1>
+  <h1>Mon Livre PDF V1.0.6</h1>
 
   <div class="nav">
     <!-- SEUL bouton conservé -->
@@ -97,6 +97,11 @@
       const total = doc.numPages;
       const renders = [];
 
+      for (let i = 1; i <= totalPages; i++) {
+       doc.getPage(i).then(function(page) {
+       // ...
+       });
+       }
       for (let i = 1; i <= total; i++) {
         renders.push(
           doc.getPage(i).then(page => {
