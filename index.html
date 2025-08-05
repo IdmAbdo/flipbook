@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Lecteur PDF V2.4</title>
+  <title>Lecteur PDF V2.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     html, body {
@@ -125,13 +125,13 @@
         loadPDF($(this).val());
       });
 
-  //    $(window).on('resize', () => {
-   //     if ($('#flipbook').data('turn')) {
-     //     const { width, height } = getFlipbookSize();
-   //       $('#flipbook').turn('size', width, height);
-    //      $('#flipbook').turn('display', 'single');
-//        }
- //     });
+      $(window).on('resize', () => {
+        if ($('#flipbook').data('turn')) {
+          const { width, height } = getFlipbookSize();
+          $('#flipbook').turn('size', width, height);
+          $('#flipbook').turn('display', 'single');
+        }
+      });
 
       $('#fullscreen').on('click', function() {
         const docEl = document.documentElement;
