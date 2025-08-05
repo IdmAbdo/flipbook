@@ -37,28 +37,10 @@
   box-shadow: 0 5px 15px rgba(0,0,0,0.7);
 }
 
-.footer {
-  padding: 1rem;
-  background-color: #222;
-  text-align: center;
-}
-
-select {
-  padding: 0.5rem;
-  font-size: 1rem;
-}
-
   </style>
 </head>
 <body>  <div class="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
-  </div>  <div class="footer">
-    <label for="pdfSelector">Choisir un livre :</label>
-    <select id="pdfSelector">
-      <option value="livre.pdf">Livre 1</option>
-      <option value="livre01.pdf">Livre 2</option>
-      <option value="livre02.pdf">Livre 3</option>
-    </select>
   </div>  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
@@ -68,14 +50,6 @@ select {
         container.turn('destroy');
       }
       container.html('').removeAttr('style').removeData();
-    }
-
-    function getBookDimensions() {
-      const maxW = window.innerWidth;
-      const isLandscape = window.innerWidth > window.innerHeight;
-      const width = isLandscape ? Math.floor(maxW * 0.9) : Math.min(maxW, 800);
-      const height = Math.round(width * 1.2);
-      return { width, height };
     }
 
     function loadPDF(pdfName) {
@@ -103,10 +77,9 @@ select {
         }
 
         Promise.all(pagePromises).then(() => {
-          const { width, height } = getBookDimensions();
           container.turn({
-            width: width,
-            height: height,
+            width: Math.min(window.innerWidth, 900),
+            height: Math.round(Math.min(window.innerWidth, 900) * 1.3),
             autoCenter: true,
             duration: 800,
             elevation: 100,
@@ -126,16 +99,14 @@ select {
     }
 
     $(document).ready(function() {
-      loadPDF($('#pdfSelector').val());
-
-      $('#pdfSelector').on('change', function() {
-        loadPDF($(this).val());
-      });
+      loadPDF('livre.pdf');
 
       $(window).on('resize', () => {
         if ($('#flipbook').data('turn')) {
-          const { width, height } = getBookDimensions();
-          $('#flipbook').turn('size', width, height);
+          $('#flipbook').turn('size',
+            Math.min(window.innerWidth, 900),
+            Math.round(Math.min(window.innerWidth, 900) * 1.3)
+          );
         }
       });
     });
