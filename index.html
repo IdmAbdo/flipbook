@@ -56,11 +56,11 @@
   </div>  <!-- Librairies locales -->  
   <script src="libs/jquery.min.js"></script>  
   <script src="libs/turn.min.js"></script>  
-  <script src="libs/pdf.min.js"></script> 
-  <script src="libs/pdf.worker.min.js"></script>
+  <script src="libs/pdf.js"></script> 
+  <script src="libs/pdf.worker.js"></script>
   <script>
   $(function(){
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.js';
 
     const url = 'pdf/livre.pdf';
     const $flip = $('#flipbook');
