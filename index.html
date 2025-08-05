@@ -1,7 +1,8 @@
-<!DOCTYPE html><html lang="fr">
+<!DOCTYPE html>
+<html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Lecteur PDF V2.1</title>
+  <title>Lecteur PDF V2.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     html, body {
@@ -59,7 +60,13 @@
     <button id="fullscreen">Plein écran ⛶</button>
     <button id="zoomIn">Zoom +</button>
     <button id="zoomOut">Zoom -</button>
-  </div>  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script>
+  </div>
+
+  <!-- Librairies locales -->
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/turn.min.js"></script>
+  <script src="libs/pdf.min.js"></script>
+  <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
     let zoomLevel = 1;
 
@@ -72,10 +79,9 @@
     }
 
     function getFlipbookSize() {
-      const isLandscape = window.innerWidth > window.innerHeight;
-      const baseWidth = isLandscape ? Math.min(window.innerWidth * 0.95, 1000) : Math.min(window.innerWidth * 0.95, 800);
+      const baseWidth = Math.min(window.innerWidth * 0.95, 800);
       const width = baseWidth * zoomLevel;
-      const height = Math.round(width * 0.7);
+      const height = Math.round(width * 1.4);
       return { width, height };
     }
 
@@ -109,8 +115,8 @@
             height: height,
             autoCenter: true,
             duration: 800,
-            elevation: 100,
-            display: 'double',
+            elevation: 50,
+            display: 'single',
             direction: 'ltr',
             gradients: true,
             acceleration: true,
@@ -153,5 +159,6 @@
         loadPDF($('#pdfSelector').val());
       });
     });
-  </script></body>
+  </script>
+</body>
 </html>
