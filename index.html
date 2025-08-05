@@ -61,7 +61,7 @@
     <button id="fullscreen">Plein écran ⛶</button>
   </div>  <div id="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
-  </div>  <!-- Librairies locales -->  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script src="libs/pdf.worker.min.js"></script>  <script>
+  </div>  <!-- Librairies locales -->  <script src="libs/jquery-3.6.0.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script src="libs/pdf.worker.min.js"></script>  <script>
   $(function(){
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
@@ -112,6 +112,11 @@
         display: 'single',
         page: 1
       });
+
+      // Sécurité pour forcer le mode single
+      setTimeout(() => {
+        flipbookEl.turn('display', 'single');
+      }, 500);
     }
 
     fsBtn.on('click', () => {
@@ -128,6 +133,7 @@
         const w = Math.min(window.innerWidth, 800);
         const h = Math.round(w * 0.7);
         flipbookEl.turn('size', w, h);
+        flipbookEl.turn('display', 'single');
       }
     });
 
