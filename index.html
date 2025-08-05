@@ -1,5 +1,4 @@
-<!DOCTYPE html>
-<html lang="fr">
+<!DOCTYPE html><html lang="fr">
 <head>
   <meta charset="utf-8">
   <title>Lecteur PDF Stylisé</title>
@@ -11,64 +10,52 @@
       background-color: #111;
       color: #fff;
       text-align: center;
-    }
+    }select {
+  margin: 1rem auto;
+  padding: 0.5rem;
+  font-size: 1rem;
+}
 
-    h1 {
-      margin-top: 1rem;
-    }
+.flipbook-container {
+  display: flex;
+  justify-content: center;
+  margin: 1rem;
+}
 
-    select {
-      margin: 1rem auto;
-      padding: 0.5rem;
-      font-size: 1rem;
-    }
+#flipbook {
+  position: relative;
+}
 
-    .flipbook-container {
-      display: flex;
-      justify-content: center;
-      margin: 1rem;
-    }
+.page {
+  width: 100%;
+  height: 100%;
+}
 
-    #flipbook {
-      position: relative;
-    }
+.page img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.7);
+}
 
-    .page {
-      width: 100%;
-      height: 100%;
-    }
-
-    .page img {
-      width: 100%;
-      height: auto;
-      border-radius: 8px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.7);
-    }
   </style>
 </head>
-<body>
-
-  <h1>📖 Mon Livre PDF</h1>
-
-  <select id="pdfSelector">
-    <option value="livre.pdf">Livre principal</option>
-    <option value="livre01.pdf">Livre 1</option>
-    <option value="livre02.pdf">Livre 2</option>
-  </select>
-
-  <div class="flipbook-container">
+<body>  <select id="pdfSelector">
+    <option value="livre.pdf">Livre 1</option>
+    <option value="livre01.pdf">Livre 3</option>
+    <option value="livre02.pdf">Livre 4</option>
+  </select>  <div class="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
-  </div>
-
-  <script src="libs/jquery.min.js"></script>
-  <script src="libs/turn.min.js"></script>
-  <script src="libs/pdf.min.js"></script>
-  <script>
+  </div>  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
     function loadPDF(pdfName) {
       const container = $('#flipbook');
-      container.html('');
+      if (container.data('turn')) {
+        container.turn('destroy').empty();
+      } else {
+        container.empty();
+      }
 
       pdfjsLib.getDocument(`pdf/${pdfName}`).promise.then(function(pdf) {
         const pagePromises = [];
@@ -95,10 +82,16 @@
             width: Math.min(window.innerWidth, 800),
             height: Math.round(Math.min(window.innerWidth, 800) * 1.2),
             autoCenter: true,
-            duration: 600,
-            elevation: 50,
+            duration: 800,
+            elevation: 100,
             display: 'single',
-            direction: 'ltr'
+            direction: 'ltr',
+            gradients: true,
+            when: {
+              turning: function(event, page, view) {
+                console.log('Turning to page', page);
+              }
+            }
           });
         });
       });
@@ -108,9 +101,6 @@
       loadPDF($('#pdfSelector').val());
 
       $('#pdfSelector').on('change', function() {
-        if ($('#flipbook').data('turn')) {
-          $('#flipbook').turn('destroy').html('');
-        }
         loadPDF($(this).val());
       });
 
@@ -123,6 +113,5 @@
         }
       });
     });
-  </script>
-</body>
+  </script></body>
 </html>
