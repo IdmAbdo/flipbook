@@ -57,7 +57,7 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.6);
     }
   </style></head>
-<body>  <h1>Mon Livre PDF V1.0.8</h1>  <div class="nav">
+<body>  <h1>Mon Livre PDF</h1>  <div class="nav">
     <button id="fullscreen">Plein écran ⛶</button>
   </div>  <div id="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
@@ -113,10 +113,11 @@
         page: 1
       });
 
-      // Sécurité pour forcer le mode single
+      // Blocage définitif du mode double
       setTimeout(() => {
         flipbookEl.turn('display', 'single');
-      }, 500);
+        flipbookEl.removeClass('turn-display-double').addClass('turn-display-single');
+      }, 300);
     }
 
     fsBtn.on('click', () => {
@@ -133,7 +134,7 @@
         const w = Math.min(window.innerWidth, 800);
         const h = Math.round(w * 0.7);
         flipbookEl.turn('size', w, h);
-        flipbookEl.turn('display', 'single');
+        // NE PAS réinitialiser display ici
       }
     });
 
