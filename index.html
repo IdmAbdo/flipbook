@@ -97,9 +97,13 @@
       const total = doc.numPages;
       const renders = [];
 
-      for (let i = 1; i <= total; i++) {
-        renders.push(
-          doc.getPage(i).then(page => {
+      for (let i = 1; i <= total; i++) 
+      {
+        doc.getPage(i).then(...) // i = 1, 2, 3, ...
+      }
+   //   {
+    //    renders.push(
+    //      doc.getPage(i).then(page => {
             const scale    = 1.2;
             const vp       = page.getViewport({ scale });
             const canvas   = document.createElement('canvas');
