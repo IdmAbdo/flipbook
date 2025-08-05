@@ -89,7 +89,7 @@
 
         for (let i = 1; i <= pdf.numPages; i++) {
           pagePromises.push(pdf.getPage(i).then(function(page) {
-            const viewport = page.getViewport({ scale: 1.5 });
+            const viewport = page.getViewport({ scale: 1.5 * zoomLevel });
             const canvas = document.createElement('canvas');
             const context = canvas.getContext('2d');
             canvas.height = viewport.height;
@@ -146,14 +146,12 @@
 
       $('#zoomIn').on('click', function() {
         zoomLevel = Math.min(zoomLevel + 0.1, 2);
-        const { width, height } = getFlipbookSize();
-        $('#flipbook').turn('size', width, height);
+        loadPDF($('#pdfSelector').val());
       });
 
       $('#zoomOut').on('click', function() {
         zoomLevel = Math.max(zoomLevel - 0.1, 0.5);
-        const { width, height } = getFlipbookSize();
-        $('#flipbook').turn('size', width, height);
+        loadPDF($('#pdfSelector').val());
       });
     });
   </script></body>
