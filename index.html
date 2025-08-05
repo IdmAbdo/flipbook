@@ -2,17 +2,12 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Lecteur PDF V2.3 - Mode Single/Double</title>
+  <title>Lecteur PDF V2.4 - Zone Conteneur Fixe</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
-      margin: 0;
-      height: 100%;
-      font-family: sans-serif;
-      background-color: #111;
-      color: #fff;
-      display: flex;
-      flex-direction: column;
+      margin: 0; height: 100%; font-family: sans-serif; background: #111; color: #fff;
+      display: flex; flex-direction: column;
     }
     .flipbook-container {
       flex: 1;
@@ -21,10 +16,23 @@
       align-items: center;
       overflow: hidden;
     }
+    #flipbook-wrapper {
+      width: 800px;
+      max-width: 95vw;
+      height: 1120px; /* 1.4 ratio approx */
+      max-height: 90vh;
+      box-sizing: border-box;
+      padding: 0;
+      margin: 0 auto;
+      border: 2px solid #333;
+      background: #222;
+      border-radius: 10px;
+      overflow: hidden;
+    }
     #flipbook {
-      position: relative;
-      max-width: 900px;
       width: 100%;
+      height: 100%;
+      position: relative;
     }
     .page {
       width: 100%;
@@ -35,6 +43,7 @@
       height: auto;
       border-radius: 8px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.7);
+      user-select: none;
     }
     .footer {
       padding: 1rem;
@@ -62,7 +71,9 @@
 <body>
 
   <div class="flipbook-container">
-    <div id="flipbook" class="flipbook"></div>
+    <div id="flipbook-wrapper">
+      <div id="flipbook" class="flipbook"></div>
+    </div>
   </div>
 
   <div class="footer">
@@ -102,10 +113,15 @@
     }
 
     function getFlipbookSize() {
-      const maxWidth = 900;
-      const baseWidth = Math.min(window.innerWidth * 0.95, maxWidth);
+      // On prend la taille du conteneur #flipbook-wrapper comme base fixe
+      const wrapper = $('#flipbook-wrapper');
+      const baseWidth = wrapper.width();
+      const baseHeight = wrapper.height();
+
+      // On applique zoom au calcul
       const width = baseWidth * zoomLevel;
-      const height = Math.round(width * 1.4);
+      const height = baseHeight * zoomLevel;
+
       return { width, height };
     }
 
@@ -115,6 +131,7 @@
 
       pdfjsLib.getDocument(`pdf/${pdfName}`).promise.then(function(pdf) {
         const pagePromises = [];
+
         for (let i = 1; i <= pdf.numPages; i++) {
           pagePromises.push(pdf.getPage(i).then(function(page) {
             const viewport = page.getViewport({ scale: 1.5 * zoomLevel });
@@ -133,6 +150,7 @@
 
         Promise.all(pagePromises).then(() => {
           const { width, height } = getFlipbookSize();
+
           container.turn({
             width: width,
             height: height,
