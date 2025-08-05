@@ -135,17 +135,17 @@
   cornerSize: 100,          // zone sensible pour le pli
   elevation:  60,           // effet 3D du pli
   duration:   600,          // vitesse animation (ms)
-  acceleration: true,       // animations fluides
-  when: {
-    turning: function(e, page) {
-      console.log('On tourne vers la page :', page);
-    },
-    turned: function(e, page) {
-      console.log('Page active :', page);
-    },
-    missing: function(e, pages) {
+//  acceleration: true,       // animations fluides
+//  when: {
+ //   turning: function(e, page) {
+//      console.log('On tourne vers la page :', page);
+//    },
+//    turned: function(e, page) {
+//      console.log('Page active :', page);
+ //   },
+//    missing: function(e, pages) {
       console.warn('Pages manquantes :', pages);
-    }
+//    }
   }
 });
     }
