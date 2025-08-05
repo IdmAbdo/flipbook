@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Mon Livre PDF V1.0.5</title>
+  <title>Mon Livre PDF</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
@@ -62,7 +62,7 @@
 </head>
 <body>
 
-  <h1>Mon Livre PDF</h1>
+  <h1>Mon Livre PDF V1.0.5</h1>
 
   <div class="nav">
     <!-- SEUL bouton conservé -->
@@ -128,7 +128,9 @@ flipbookEl.turn({
   width:      w,
   height:     h,
   display:    'double',   // toujours 2 pages visibles
-  page: 1,
+  for (let i = 1; i <= doc.numPages; i++) {
+  doc.getPage(i).then(...) // i = 1, 2, 3, ...
+  }
   direction:  'rtl',        
   autoCenter: true,
   gradients:  true,         // ombres du pli
