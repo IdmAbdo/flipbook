@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Lecteur PDF V2.5</title>
+  <title>Lecteur PDF V2.2 - Mode Single Fixé</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     html, body {
@@ -22,6 +22,9 @@
     }
     #flipbook {
       position: relative;
+    }
+    .flipbook {
+      max-width: 500px !important;
     }
     .page {
       width: 100%;
@@ -72,13 +75,9 @@
     }
 
     function getFlipbookSize() {
-      const maxSafeWidth = 500; // largeur maximum pour éviter le mode double
-      const screenWidth = window.innerWidth;
-
-      const baseWidth = Math.min(screenWidth * 0.95, maxSafeWidth);
+      const baseWidth = 500;
       const width = baseWidth * zoomLevel;
-      const height = Math.round(width * 1.4); // Format A4
-
+      const height = Math.round(width * 1.4);
       return { width, height };
     }
 
@@ -110,13 +109,13 @@
           container.turn({
             width: width,
             height: height,
+            display: 'single',
             autoCenter: true,
             duration: 800,
             elevation: 50,
-            display: 'single',
-            gradients: true,
             acceleration: true,
-            turnCorners: "tl,tr"
+            gradients: true,
+            turnCorners: 'tl,tr'
           });
         });
       });
@@ -133,7 +132,6 @@
         if ($('#flipbook').data('turn')) {
           const { width, height } = getFlipbookSize();
           $('#flipbook').turn('size', width, height);
-          $('#flipbook').turn('display', 'single');
         }
       });
 
