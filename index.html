@@ -1,13 +1,18 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <title>Lecteur PDF V2.4 - Zone Conteneur Fixe</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="utf-8">
+  <title>Lecteur PDF V2.6</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     html, body {
-      margin: 0; height: 100%; font-family: sans-serif; background: #111; color: #fff;
-      display: flex; flex-direction: column;
+      margin: 0;
+      height: 100%;
+      font-family: sans-serif;
+      background-color: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
     }
     .flipbook-container {
       flex: 1;
@@ -16,22 +21,7 @@
       align-items: center;
       overflow: hidden;
     }
-    #flipbook-wrapper {
-      width: 800px;
-      max-width: 95vw;
-      height: 1120px; /* 1.4 ratio approx */
-      max-height: 90vh;
-      box-sizing: border-box;
-      padding: 0;
-      margin: 0 auto;
-      border: 2px solid #333;
-      background: #222;
-      border-radius: 10px;
-      overflow: hidden;
-    }
     #flipbook {
-      width: 100%;
-      height: 100%;
       position: relative;
     }
     .page {
@@ -43,39 +33,23 @@
       height: auto;
       border-radius: 8px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.7);
-      user-select: none;
     }
     .footer {
       padding: 1rem;
       background-color: #222;
       text-align: center;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.5rem;
     }
     select, button {
-      padding: 0.5rem 1rem;
+      padding: 0.5rem;
       font-size: 1rem;
-      cursor: pointer;
-      background: #333;
-      border: none;
-      color: #fff;
-      border-radius: 4px;
-    }
-    select {
-      min-width: 140px;
+      margin: 0.3rem;
     }
   </style>
 </head>
 <body>
-
   <div class="flipbook-container">
-    <div id="flipbook-wrapper">
-      <div id="flipbook" class="flipbook"></div>
-    </div>
+    <div id="flipbook" class="flipbook"></div>
   </div>
-
   <div class="footer">
     <label for="pdfSelector">Choisir un livre :</label>
     <select id="pdfSelector">
@@ -83,26 +57,17 @@
       <option value="livre01.pdf">Livre 2</option>
       <option value="livre02.pdf">Livre 3</option>
     </select>
-
-    <label for="modeSelector">Mode affichage :</label>
-    <select id="modeSelector">
-      <option value="single">Single Page</option>
-      <option value="double">Double Page</option>
-    </select>
-
     <button id="fullscreen">Plein écran ⛶</button>
     <button id="zoomIn">Zoom +</button>
     <button id="zoomOut">Zoom -</button>
-  </div>
+  </div>  
 
-  <script src="libs/jquery.min.js"></script>
-  <script src="libs/turn.min.js"></script>
-  <script src="libs/pdf.min.js"></script>
+  <script src="libs/jquery.min.js"></script>  
+  <script src="libs/turn.min.js"></script>  
+  <script src="libs/pdf.min.js"></script>  
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
-
     let zoomLevel = 1;
-    let currentMode = 'single';
 
     function resetFlipbookContainer() {
       const container = $('#flipbook');
@@ -113,16 +78,11 @@
     }
 
     function getFlipbookSize() {
-      // On prend la taille du conteneur #flipbook-wrapper comme base fixe
-      const wrapper = $('#flipbook-wrapper');
-      const baseWidth = wrapper.width();
-      const baseHeight = wrapper.height();
-
-      // On applique zoom au calcul
+      const isLandscape = window.innerWidth > window.innerHeight;
+      const baseWidth = isLandscape ? Math.min(window.innerWidth * 0.95, 1000) : Math.min(window.innerWidth * 0.95, 800);
       const width = baseWidth * zoomLevel;
-      const height = baseHeight * zoomLevel;
-
-      return { width, height };
+      const height = Math.round(width * 0.7);
+      return { width, height, isLandscape };
     }
 
     function loadPDF(pdfName) {
@@ -149,29 +109,18 @@
         }
 
         Promise.all(pagePromises).then(() => {
-          const { width, height } = getFlipbookSize();
-
+          const { width, height, isLandscape } = getFlipbookSize();
           container.turn({
             width: width,
             height: height,
             autoCenter: true,
             duration: 800,
-            elevation: 50,
-            display: currentMode,
-            acceleration: true,
+            elevation: 100,
+            display: isLandscape ? 'double' : 'single',
+            direction: 'ltr',
             gradients: true,
-            turnCorners: "tl,tr",
-            when: {
-              turning: function() {
-                container.turn('display', currentMode);
-              },
-              turned: function() {
-                container.turn('display', currentMode);
-              },
-              resize: function() {
-                container.turn('display', currentMode);
-              }
-            }
+            acceleration: true,
+            turnCorners: "tl,tr"
           });
         });
       });
@@ -184,16 +133,11 @@
         loadPDF($(this).val());
       });
 
-      $('#modeSelector').on('change', function() {
-        currentMode = $(this).val();
-        loadPDF($('#pdfSelector').val());
-      });
-
       $(window).on('resize', () => {
         if ($('#flipbook').data('turn')) {
-          const { width, height } = getFlipbookSize();
+          const { width, height, isLandscape } = getFlipbookSize();
           $('#flipbook').turn('size', width, height);
-          $('#flipbook').turn('display', currentMode);
+          $('#flipbook').turn('display', isLandscape ? 'double' : 'single');
         }
       });
 
@@ -217,6 +161,5 @@
       });
     });
   </script>
-
 </body>
 </html>
