@@ -41,21 +41,25 @@
   </style>
 </head>
 <body>  <select id="pdfSelector">
-    <option value="livre.pdf">Livre1</option>
-    <option value="livre01.pdf">Livre2</option>
-    <option value="livre02.pdf">Livre3</option>
+    <option value="livre.pdf">Livre 1</option>
+    <option value="livre01.pdf">Livre 3</option>
+    <option value="livre02.pdf">Livre 4</option>
   </select>  <div class="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
   </div>  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
-    function loadPDF(pdfName) {
+    function resetFlipbookContainer() {
       const container = $('#flipbook');
       if (container.data('turn')) {
-        container.turn('destroy').empty();
-      } else {
-        container.empty();
+        container.turn('destroy');
       }
+      container.html('').removeAttr('style').removeData();
+    }
+
+    function loadPDF(pdfName) {
+      resetFlipbookContainer();
+      const container = $('#flipbook');
 
       pdfjsLib.getDocument(`pdf/${pdfName}`).promise.then(function(pdf) {
         const pagePromises = [];
