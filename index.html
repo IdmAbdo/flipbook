@@ -1,8 +1,7 @@
-<!DOCTYPE html>
-<html lang="fr">
+<!DOCTYPE html><html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Lecteur PDF V2.2</title>
+  <title>Lecteur PDF V2.3</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     html, body {
@@ -60,13 +59,7 @@
     <button id="fullscreen">Plein écran ⛶</button>
     <button id="zoomIn">Zoom +</button>
     <button id="zoomOut">Zoom -</button>
-  </div>
-
-  <!-- Librairies locales -->
-  <script src="libs/jquery.min.js"></script>
-  <script src="libs/turn.min.js"></script>
-  <script src="libs/pdf.min.js"></script>
-  <script>
+  </div>  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
     let zoomLevel = 1;
 
@@ -117,7 +110,14 @@
             duration: 800,
             elevation: 50,
             display: 'single',
-            direction: 'ltr',
+            when: {
+              turning: function(event, page, view) {
+                container.turn("display", "single");
+              },
+              turned: function(event, page, view) {
+                container.turn("display", "single");
+              }
+            },
             gradients: true,
             acceleration: true,
             turnCorners: "tl,tr"
@@ -159,6 +159,5 @@
         loadPDF($('#pdfSelector').val());
       });
     });
-  </script>
-</body>
+  </script></body>
 </html>
