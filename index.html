@@ -13,7 +13,6 @@
     }
     h1 { margin: 1rem 0; }
 
-    /* Nav */
     .nav {
       display: flex;
       justify-content: center;
@@ -29,8 +28,11 @@
       cursor: pointer;
       font-size: 1rem;
     }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
 
-    /* Container */
     #flipbook-container {
       display: flex;
       justify-content: center;
@@ -39,13 +41,12 @@
       overflow: hidden;
     }
 
-    /* Flipbook */
     .flipbook {
       position: relative;
       margin: 0 auto;
     }
     .flipbook .page {
-      width: 50%;
+      width: 100%;
       height: 100%;
     }
     .flipbook .page img {
@@ -56,30 +57,25 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.6);
     }
   </style></head>
-<body>  <h1>Mon Livre PDF V1.1.1</h1>
-  <div class="nav">
+<body>  <h1>Mon Livre PDF</h1>  <div class="nav">
     <button id="fullscreen">Plein écran ⛶</button>
   </div>  <div id="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
-  </div>  <!-- Librairies locales -->  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.js"></script>  <script src="libs/pdf.worker.js"></script>  <script>
+  </div>  <!-- Librairies locales -->  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script src="libs/pdf.worker.min.js"></script>  <script>
   $(function(){
-    // Configurer le worker de PDF.js
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
     const url = 'pdf/livre.pdf';
     const flipbookEl = $('#flipbook');
-    const fsBtn       = $('#fullscreen');
+    const fsBtn = $('#fullscreen');
 
     let pdfDoc = null;
-    let totalPages = 0;
 
-    // Charger le PDF et rendre chaque page en <img>
     pdfjsLib.getDocument(url).promise.then(function(doc) {
       pdfDoc = doc;
-      totalPages = doc.numPages;
 
       const promises = [];
-      for(let i=1; i<=totalPages; i++){
+      for(let i=1; i<=doc.numPages; i++){
         promises.push(
           doc.getPage(i).then(function(page){
             const scale = 1.2;
@@ -106,20 +102,18 @@
     function initFlipbook(){
       const containerW = Math.min(window.innerWidth, 800);
       const containerH = Math.round(containerW * 0.7);
-      const displayMode = window.innerWidth < 600 ? 'single' : 'double';
 
-flipbookEl.turn({
-  width:      containerW,
-  height:     containerH,
-  autoCenter: true,
-  duration:   600,
-  elevation:  50,
-  page:       1,
-  display:    single, //displayMode
-});
+      flipbookEl.turn({
+        width:  containerW,
+        height: containerH,
+        autoCenter: true,
+        duration: 600,
+        elevation: 50,
+        display: 'single',
+        page: 1
+      });
     }
 
-    // Plein écran
     fsBtn.on('click', () => {
       const el = document.documentElement;
       if (!document.fullscreenElement) {
@@ -129,16 +123,13 @@ flipbookEl.turn({
       }
     });
 
-    // Recalculer au redimensionnement
-    $(window).on('resize orientationchange', () => {
-    if(pdfDoc && flipbookEl.data('turn')){
-    const w = Math.min(window.innerWidth, 800);
-    const h = Math.round(w * 0.7);
-    const displayMode = window.innerWidth < 600 ? 'single' : 'double';
-    flipbookEl.turn('size', w, h);
-    flipbookEl.turn('display', displayMode);
-     }
-   });
+    $(window).on('resize', () => {
+      if(pdfDoc && flipbookEl.data('turn')){
+        const w = Math.min(window.innerWidth, 800);
+        const h = Math.round(w * 0.7);
+        flipbookEl.turn('size', w, h);
+      }
+    });
 
   });
   </script></body>
