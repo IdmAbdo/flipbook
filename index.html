@@ -47,14 +47,14 @@
       height: 100vh!important;
     }
   </style></head>
-<body>  <h1>Mon Livre PDF – V1.1.5</h1>
+<body>  <h1>Mon Livre PDF – V1.1</h1>
   <div class="nav">
     <button id="fullscreen">Plein écran ⛶</button>
   </div>  <div id="flipbook-container">
     <div id="flipbook"></div>
-  </div>  <!-- Librairies locales -->  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.js"></script>  <script src="libs/pdf.worker.js"></script>  <script>
+  </div>  <!-- Librairies locales -->  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script src="libs/pdf.worker.min.js"></script>  <script>
   $(function(){
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
     const url = 'pdf/livre.pdf';
     const $flip = $('#flipbook');
@@ -81,12 +81,19 @@
         );
       }
       return Promise.all(jobs);
-    }).then(initFlip);
+    }).then(() => {
+      initFlip();
+      $(window).on('resize orientationchange', updateFlip);
+    });
 
-    function initFlip(){
+    function getDisplayMode() {
+      return window.innerWidth < 768 ? 'single' : 'double';
+    }
+
+    function initFlip() {
       const w = Math.min(window.innerWidth * 0.95, 1000);
       const h = Math.round(w * 0.7);
-      const displayMode = window.innerHeight > window.innerWidth ? 'single' : 'double';
+      const displayMode = getDisplayMode();
 
       $flip.turn({
         width:       w,
@@ -103,21 +110,21 @@
       });
     }
 
+    function updateFlip() {
+      if ($flip.data('turn')) {
+        const w = Math.min(window.innerWidth * 0.95, 1000);
+        const h = Math.round(w * 0.7);
+        const displayMode = getDisplayMode();
+        $flip.turn('size', w, h);
+        $flip.turn('display', displayMode);
+      }
+    }
+
     $fs.on('click', () => {
       const el = document.documentElement;
       if (!document.fullscreenElement) el.requestFullscreen?.();
       else document.exitFullscreen?.();
-      setTimeout(initFlip, 300);
-    });
-
-    $(window).on('resize orientationchange', () => {
-      if ($flip.data('turn')) {
-        const w = Math.min(window.innerWidth * 0.95, 1000);
-        const h = Math.round(w * 0.7);
-        const displayMode = window.innerHeight > window.innerWidth ? 'single' : 'double';
-        $flip.turn('size', w, h);
-        $flip.turn('display', displayMode);
-      }
+      setTimeout(updateFlip, 300);
     });
   });
   </script></body>
