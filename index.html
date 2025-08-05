@@ -56,15 +56,15 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.6);
     }
   </style></head>
-<body>  <h1>Mon Livre PDF V1.1</h1>
+<body>  <h1>Mon Livre PDF V1.1.0</h1>
   <div class="nav">
     <button id="fullscreen">Plein écran ⛶</button>
   </div>  <div id="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
-  </div>  <!-- Librairies locales -->  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script src="libs/pdf.worker.min.js"></script>  <script>
+  </div>  <!-- Librairies locales -->  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.js"></script>  <script src="libs/pdf.worker.js"></script>  <script>
   $(function(){
     // Configurer le worker de PDF.js
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.js';
 
     const url = 'pdf/livre.pdf';
     const flipbookEl = $('#flipbook');
