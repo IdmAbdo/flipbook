@@ -4,26 +4,25 @@
   <title>Lecteur PDF Stylisé</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    body {
+    html, body {
       margin: 0;
+      height: 100%;
       font-family: sans-serif;
       background-color: #111;
       color: #fff;
-      text-align: center;
-    }select {
-  margin: 1rem auto;
-  padding: 0.5rem;
-  font-size: 1rem;
-}
-
-.flipbook-container {
+      display: flex;
+      flex-direction: column;
+    }.flipbook-container {
+  flex: 1;
   display: flex;
   justify-content: center;
-  margin: 1rem;
+  align-items: center;
+  overflow: hidden;
 }
 
 #flipbook {
   position: relative;
+  touch-action: pan-y;
 }
 
 .page {
@@ -38,14 +37,28 @@
   box-shadow: 0 5px 15px rgba(0,0,0,0.7);
 }
 
+.footer {
+  padding: 1rem;
+  background-color: #222;
+  text-align: center;
+}
+
+select {
+  padding: 0.5rem;
+  font-size: 1rem;
+}
+
   </style>
 </head>
-<body>  <select id="pdfSelector">
-    <option value="livre.pdf">Livre 1</option>
-    <option value="livre01.pdf">Livre 3</option>
-    <option value="livre02.pdf">Livre 4</option>
-  </select>  <div class="flipbook-container">
+<body>  <div class="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
+  </div>  <div class="footer">
+    <label for="pdfSelector">Choisir un livre :</label>
+    <select id="pdfSelector">
+      <option value="livre.pdf">Livre 1</option>
+      <option value="livre01.pdf">Livre 2</option>
+      <option value="livre02.pdf">Livre 3</option>
+    </select>
   </div>  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
@@ -83,14 +96,16 @@
 
         Promise.all(pagePromises).then(() => {
           container.turn({
-            width: Math.min(window.innerWidth, 800),
-            height: Math.round(Math.min(window.innerWidth, 800) * 1.2),
+            width: Math.min(window.innerWidth, 900),
+            height: Math.round(Math.min(window.innerWidth, 900) * 1.3),
             autoCenter: true,
             duration: 800,
             elevation: 100,
             display: 'double',
             direction: 'ltr',
             gradients: true,
+            acceleration: true,
+            turnCorners: "tl,tr",
             when: {
               turning: function(event, page, view) {
                 console.log('Turning to page', page);
@@ -111,8 +126,8 @@
       $(window).on('resize', () => {
         if ($('#flipbook').data('turn')) {
           $('#flipbook').turn('size',
-            Math.min(window.innerWidth, 800),
-            Math.round(Math.min(window.innerWidth, 800) * 1.2)
+            Math.min(window.innerWidth, 900),
+            Math.round(Math.min(window.innerWidth, 900) * 1.3)
           );
         }
       });
