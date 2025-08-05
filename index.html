@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Lecteur PDF V2.3</title>
+  <title>Lecteur PDF V2.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     html, body {
@@ -110,17 +110,20 @@
             duration: 800,
             elevation: 50,
             display: 'single',
-            when: {
-              turning: function(event, page, view) {
-                container.turn("display", "single");
-              },
-              turned: function(event, page, view) {
-                container.turn("display", "single");
-              }
-            },
             gradients: true,
             acceleration: true,
-            turnCorners: "tl,tr"
+            turnCorners: "tl,tr",
+            when: {
+              turning: function() {
+                container.turn("display", "single");
+              },
+              turned: function() {
+                container.turn("display", "single");
+              },
+              resize: function() {
+                container.turn("display", "single");
+              }
+            }
           });
         });
       });
@@ -137,6 +140,7 @@
         if ($('#flipbook').data('turn')) {
           const { width, height } = getFlipbookSize();
           $('#flipbook').turn('size', width, height);
+          $('#flipbook').turn('display', 'single');
         }
       });
 
