@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Lecteur PDF V2.2</title>
+  <title>Lecteur PDF V2.5</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     html, body {
@@ -71,12 +71,16 @@
       container.empty().removeAttr('style').removeData();
     }
 
-  //  function getFlipbookSize() {
-   //   const baseWidth = Math.min(window.innerWidth * 0.95, 800);
-  //    const width = baseWidth * zoomLevel;
-   //   const height = Math.round(width * 1.4);
-//      return { width, height };
- //   }
+    function getFlipbookSize() {
+      const maxSafeWidth = 500; // largeur maximum pour éviter le mode double
+      const screenWidth = window.innerWidth;
+
+      const baseWidth = Math.min(screenWidth * 0.95, maxSafeWidth);
+      const width = baseWidth * zoomLevel;
+      const height = Math.round(width * 1.4); // Format A4
+
+      return { width, height };
+    }
 
     function loadPDF(pdfName) {
       resetFlipbookContainer();
