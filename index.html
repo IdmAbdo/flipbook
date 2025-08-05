@@ -1,8 +1,9 @@
-<!DOCTYPE html><html lang="fr">
+<!DOCTYPE html>
+<html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <title>Lecteur PDF V2.2 - Mode Single Fixé</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <title>Lecteur PDF V2.3 - Mode Single/Double</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
       margin: 0;
@@ -22,9 +23,8 @@
     }
     #flipbook {
       position: relative;
-    }
-    .flipbook {
-      max-width: 500px !important;
+      max-width: 900px;
+      width: 100%;
     }
     .page {
       width: 100%;
@@ -40,18 +40,31 @@
       padding: 1rem;
       background-color: #222;
       text-align: center;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
     }
     select, button {
-      padding: 0.5rem;
+      padding: 0.5rem 1rem;
       font-size: 1rem;
-      margin: 0.3rem;
+      cursor: pointer;
+      background: #333;
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+    }
+    select {
+      min-width: 140px;
     }
   </style>
 </head>
 <body>
+
   <div class="flipbook-container">
     <div id="flipbook" class="flipbook"></div>
   </div>
+
   <div class="footer">
     <label for="pdfSelector">Choisir un livre :</label>
     <select id="pdfSelector">
@@ -59,12 +72,26 @@
       <option value="livre01.pdf">Livre 2</option>
       <option value="livre02.pdf">Livre 3</option>
     </select>
+
+    <label for="modeSelector">Mode affichage :</label>
+    <select id="modeSelector">
+      <option value="single">Single Page</option>
+      <option value="double">Double Page</option>
+    </select>
+
     <button id="fullscreen">Plein écran ⛶</button>
     <button id="zoomIn">Zoom +</button>
     <button id="zoomOut">Zoom -</button>
-  </div>  <script src="libs/jquery.min.js"></script>  <script src="libs/turn.min.js"></script>  <script src="libs/pdf.min.js"></script>  <script>
+  </div>
+
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/turn.min.js"></script>
+  <script src="libs/pdf.min.js"></script>
+  <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+
     let zoomLevel = 1;
+    let currentMode = 'single';
 
     function resetFlipbookContainer() {
       const container = $('#flipbook');
@@ -75,7 +102,8 @@
     }
 
     function getFlipbookSize() {
-      const baseWidth = 500;
+      const maxWidth = 900;
+      const baseWidth = Math.min(window.innerWidth * 0.95, maxWidth);
       const width = baseWidth * zoomLevel;
       const height = Math.round(width * 1.4);
       return { width, height };
@@ -87,7 +115,6 @@
 
       pdfjsLib.getDocument(`pdf/${pdfName}`).promise.then(function(pdf) {
         const pagePromises = [];
-
         for (let i = 1; i <= pdf.numPages; i++) {
           pagePromises.push(pdf.getPage(i).then(function(page) {
             const viewport = page.getViewport({ scale: 1.5 * zoomLevel });
@@ -109,13 +136,24 @@
           container.turn({
             width: width,
             height: height,
-            display: 'single',
             autoCenter: true,
             duration: 800,
             elevation: 50,
+            display: currentMode,
             acceleration: true,
             gradients: true,
-            turnCorners: 'tl,tr'
+            turnCorners: "tl,tr",
+            when: {
+              turning: function() {
+                container.turn('display', currentMode);
+              },
+              turned: function() {
+                container.turn('display', currentMode);
+              },
+              resize: function() {
+                container.turn('display', currentMode);
+              }
+            }
           });
         });
       });
@@ -128,10 +166,16 @@
         loadPDF($(this).val());
       });
 
+      $('#modeSelector').on('change', function() {
+        currentMode = $(this).val();
+        loadPDF($('#pdfSelector').val());
+      });
+
       $(window).on('resize', () => {
         if ($('#flipbook').data('turn')) {
           const { width, height } = getFlipbookSize();
           $('#flipbook').turn('size', width, height);
+          $('#flipbook').turn('display', currentMode);
         }
       });
 
@@ -154,5 +198,7 @@
         loadPDF($('#pdfSelector').val());
       });
     });
-  </script></body>
+  </script>
+
+</body>
 </html>
