@@ -56,7 +56,7 @@
       box-shadow: 0 4px 12px rgba(0,0,0,0.6);
     }
   </style></head>
-<body>  <h1>Mon Livre PDF V1.1.0</h1>
+<body>  <h1>Mon Livre PDF V1.1.1</h1>
   <div class="nav">
     <button id="fullscreen">Plein écran ⛶</button>
   </div>  <div id="flipbook-container">
@@ -106,16 +106,17 @@
     function initFlipbook(){
       const containerW = Math.min(window.innerWidth, 800);
       const containerH = Math.round(containerW * 0.7);
+      const displayMode = window.innerWidth < 600 ? 'single' : 'double';
 
-      flipbookEl.turn({
-        width:      containerW,
-        height:     containerH,
-        autoCenter: true,
-        duration:   600,
-        elevation:  50,
-        page:       1,
-        display:    'double'
-      });
+flipbookEl.turn({
+  width:      containerW,
+  height:     containerH,
+  autoCenter: true,
+  duration:   600,
+  elevation:  50,
+  page:       1,
+  display:    displayMode
+});
     }
 
     // Plein écran
@@ -129,14 +130,15 @@
     });
 
     // Recalculer au redimensionnement
-    $(window).on('resize', () => {
-      if(pdfDoc && flipbookEl.data('turn')){
-        flipbookEl.turn('size',
-          Math.min(window.innerWidth, 800),
-          Math.round(Math.min(window.innerWidth, 800) * 0.7)
-        );
-      }
-    });
+    $(window).on('resize orientationchange', () => {
+    if(pdfDoc && flipbookEl.data('turn')){
+    const w = Math.min(window.innerWidth, 800);
+    const h = Math.round(w * 0.7);
+    const displayMode = window.innerWidth < 600 ? 'single' : 'double';
+    flipbookEl.turn('size', w, h);
+    flipbookEl.turn('display', displayMode);
+     }
+   });
 
   });
   </script></body>
