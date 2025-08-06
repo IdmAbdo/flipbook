@@ -1,219 +1,215 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <title>Flipbook V3.3</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <style>
-    html, body {
-      margin: 0; height: 100%;
-      font-family: sans-serif;
-      background-color: #111;
-      color: #fff;
-      overflow: hidden;
-    }
-    .flipbook-container {
-      position: relative;
-      height: 100vh;
-      width: 100vw;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-      background: #111;
-    }
-    #flipbook {
-      position: relative;
-      max-width: 100%;
-      max-height: 100%;
-      box-sizing: border-box;
-      user-select: none;
-      -webkit-user-drag: none;
-    }
-    .page img {
-      width: 100%;
-      height: auto;
-      border-radius: 8px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.7);
-      transition: filter 0.5s;
-    }
-    /* Barre boutons overlay */
-    .footer {
-      position: absolute;
-      bottom: 10px;
-      left: 50%;
-      transform: translateX(-50%);
-      height: 50px;
-      background: rgba(0,0,0,0.7);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 15px;
-      padding: 0 15px;
-      box-sizing: border-box;
-      border-radius: 30px;
-      opacity: 1;
-      pointer-events: auto;
-      z-index: 10;
-      user-select: none;
-    }
-    select, button {
-      padding: 0.4rem 1rem;
-      font-size: 1rem;
-      background: #222;
-      color: #fff;
-      border: none;
-      border-radius: 20px;
-      cursor: pointer;
-      user-select: none;
-      height: 35px;
-      line-height: 1;
-      transition: background 0.3s, color 0.3s;
-    }
-    select {
-      min-width: 150px;
-    }
-  </style>
+<meta charset="utf-8" />
+<title>Flipbook V3.0 adapté transitions fluides</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style>
+  html, body {
+    margin: 0; height: 100%;
+    font-family: sans-serif;
+    background-color: #111;
+    color: #fff;
+    overflow: hidden;
+  }
+  .flipbook-container {
+    position: relative;
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #111;
+    overflow: hidden;
+  }
+  #flipbook {
+    max-width: 100%;
+    max-height: 100%;
+    user-select: none;
+    -webkit-user-drag: none;
+  }
+  .page img {
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.7);
+  }
+  .footer {
+    position: absolute;
+    bottom: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 50px;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 15px;
+    padding: 0 15px;
+    box-sizing: border-box;
+    border-radius: 30px;
+    opacity: 1;
+    pointer-events: auto;
+    z-index: 10;
+    user-select: none;
+  }
+  select, button {
+    padding: 0.4rem 1rem;
+    font-size: 1rem;
+    background: #222;
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    cursor: pointer;
+    user-select: none;
+    height: 35px;
+    line-height: 1;
+    transition: background 0.3s, color 0.3s;
+  }
+  select {
+    min-width: 150px;
+  }
+</style>
 </head>
 <body>
-  <div class="flipbook-container">
-    <div id="flipbook"></div>
-    <div class="footer" id="footer">
-      <label for="pdfSelector" style="user-select:none; white-space: nowrap;">Choisir un livre :</label>
-      <select id="pdfSelector">
-        <option value="pdf/livre.pdf">Livre 1</option>
-        <option value="pdf/livre01.pdf">Livre 2</option>
-        <option value="pdf/livre02.pdf">Livre 3</option>
-      </select>
-      <button id="fullscreen" aria-label="Plein écran">⛶</button>
-    </div>
+<div class="flipbook-container">
+  <div id="flipbook"></div>
+  <div class="footer" id="footer">
+    <label for="pdfSelector" style="user-select:none; white-space: nowrap;">Choisir un livre :</label>
+    <select id="pdfSelector">
+      <option value="pdf/livre.pdf">Livre 1</option>
+      <option value="pdf/livre01.pdf">Livre 2</option>
+      <option value="pdf/livre02.pdf">Livre 3</option>
+    </select>
+    <button id="fullscreen" aria-label="Plein écran">⛶</button>
   </div>
+</div>
 
-  <script src="libs/jquery.min.js"></script>
-  <script src="libs/turn.min.js"></script>
-  <script src="libs/pdf.min.js"></script>
-  <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+<script src="libs/jquery.min.js"></script>
+<script src="libs/turn.min.js"></script>
+<script src="libs/pdf.min.js"></script>
+<script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
-    let zoomLevel = 1;
-    let currentMode = null;
-    let resizeTimer;
+  let currentMode = null;
+  let zoomLevel = 1;
+  let resizeTimeout = null;
 
-    function getFlipbookMode() {
-      return window.matchMedia("(orientation: landscape)").matches ? 'double' : 'single';
+  function getMode() {
+    return window.matchMedia("(orientation: landscape)").matches ? 'double' : 'single';
+  }
+
+  function getFlipbookSize() {
+    const mode = getMode();
+    const maxWidth = window.innerWidth;
+    const maxHeight = window.innerHeight;
+
+    if (mode === 'double') {
+      const height = maxHeight;
+      const width = Math.min(Math.round(height / 0.7), maxWidth);
+      return { width, height, mode };
+    } else {
+      let width = Math.min(maxWidth * 0.95, 800) * zoomLevel;
+      const height = maxHeight;
+      width = Math.min(width, Math.round(height / 0.7));
+      return { width, height, mode };
+    }
+  }
+
+  async function renderPage(pdf, pageNum) {
+    const page = await pdf.getPage(pageNum);
+    const viewport = page.getViewport({ scale: 1.5 * zoomLevel });
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const img = canvas.toDataURL();
+    const pageDiv = $('<div class="page"></div>');
+    pageDiv.append($('<img>').attr('src', img));
+    return pageDiv;
+  }
+
+  async function initFlipbook(pdfPath, forceReload = false) {
+    const { width, height, mode } = getFlipbookSize();
+
+    if (!forceReload && currentMode === mode && $('#flipbook').data('turn')) {
+      $('#flipbook').turn('size', width, height);
+      return;
     }
 
-    function getFlipbookSize() {
-      const mode = getFlipbookMode();
-      const maxWidth = window.innerWidth;
-      const maxHeight = window.innerHeight;
+    currentMode = mode;
 
-      if (mode === 'double') {
-        const height = maxHeight;
-        const width = Math.min(Math.round(height / 0.7), maxWidth);
-        return { width, height, mode };
-      } else {
-        let width = Math.min(maxWidth * 0.95, 800) * zoomLevel;
-        const height = maxHeight;
-        width = Math.min(width, Math.round(height / 0.7));
-        return { width, height, mode };
-      }
+    const container = $('#flipbook');
+    if (container.data('turn')) {
+      container.turn('destroy');
     }
+    container.empty();
 
-    async function renderPage(pdf, pageNum) {
-      const page = await pdf.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 1.5 * zoomLevel });
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      await page.render({ canvasContext: ctx, viewport }).promise;
-      const img = canvas.toDataURL();
-      const pageDiv = $('<div class="page"></div>');
-      pageDiv.append($('<img>').attr('src', img));
-      return pageDiv;
-    }
+    try {
+      const pdf = await pdfjsLib.getDocument(pdfPath).promise;
+      const tempContainer = $('<div>').css({
+        visibility: 'hidden',
+        position: 'absolute',
+        top: '-9999px',
+        left: '-9999px',
+        width: '100%',
+        height: '100%'
+      }).appendTo('body');
 
-    async function loadPDF(pdfPath, forceReload = false) {
-      const { width, height, mode } = getFlipbookSize();
-
-      if (!forceReload && currentMode === mode && $('#flipbook').data('turn')) {
-        $('#flipbook').turn('size', width, height);
-        return;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const pageDiv = await renderPage(pdf, i);
+        tempContainer.append(pageDiv);
       }
 
-      currentMode = mode;
-
-      const container = $('#flipbook');
-      if (container.data('turn')) {
-        container.turn('destroy');
-      }
       container.empty();
+      container.append(tempContainer.children());
+      tempContainer.remove();
 
-      try {
-        const pdf = await pdfjsLib.getDocument(pdfPath).promise;
-        const tempContainer = $('<div>').css({
-          visibility: 'hidden',
-          position: 'absolute',
-          top: '-9999px',
-          left: '-9999px',
-          width: '100%',
-          height: '100%'
-        }).appendTo('body');
+      container.turn({
+        width: width,
+        height: height,
+        display: mode,
+        autoCenter: true,
+        duration: 700,
+        gradients: true,
+        acceleration: true,
+        elevation: 100,
+        turnCorners: "tl,tr",
+        direction: 'ltr'
+      });
+    } catch (e) {
+      alert("Erreur lors du chargement du PDF : " + e.message);
+    }
+  }
 
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const pageDiv = await renderPage(pdf, i);
-          tempContainer.append(pageDiv);
-        }
+  $(document).ready(() => {
+    const pdfPath = $('#pdfSelector').val();
 
-        container.empty();
-        container.append(tempContainer.children());
-        tempContainer.remove();
-
-        container.turn({
-          width: width,
-          height: height,
-          display: mode,
-          autoCenter: true,
-          duration: 700,
-          gradients: true,
-          acceleration: true,
-          elevation: 100,
-          turnCorners: "tl,tr",
-          direction: 'ltr'
-        });
-      } catch (e) {
-        alert("Erreur lors du chargement du PDF : " + e.message);
-      }
+    function reloadFlipbook() {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        initFlipbook(pdfPath, true);
+      }, 200);
     }
 
-    $(document).ready(() => {
-      function reloadFlipbook() {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-          loadPDF($('#pdfSelector').val(), true);
-        }, 200);
-      }
+    initFlipbook(pdfPath, true);
 
-      loadPDF($('#pdfSelector').val(), true);
-
-      $('#pdfSelector').on('change', () => {
-        loadPDF($('#pdfSelector').val(), true);
-      });
-
-      $('#fullscreen').on('click', () => {
-        const docEl = document.documentElement;
-        if (!document.fullscreenElement) {
-          docEl.requestFullscreen?.();
-        } else {
-          document.exitFullscreen?.();
-        }
-      });
-
-      $(window).on('resize orientationchange', () => {
-        reloadFlipbook();
-      });
+    $('#pdfSelector').on('change', function() {
+      initFlipbook($(this).val(), true);
     });
-  </script>
+
+    $('#fullscreen').on('click', () => {
+      const docEl = document.documentElement;
+      if (!document.fullscreenElement) {
+        docEl.requestFullscreen?.();
+      } else {
+        document.exitFullscreen?.();
+      }
+    });
+
+    $(window).on('resize orientationchange', reloadFlipbook);
+  });
+</script>
 </body>
 </html>
