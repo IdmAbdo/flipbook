@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Lecteur PDF V2.1.2</title>
+  <title>Lecteur PDF V2.2.1</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -68,7 +68,8 @@
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
     let zoomLevel = 1;
-    let currentMode = null; // 'single' ou 'double'
+    let currentMode = null; 
+    let orientationStable = false; // flag pour éviter plusieurs chargements initiaux
 
     function resetFlipbookContainer() {
       const container = $('#flipbook');
@@ -89,13 +90,12 @@
     function loadPDF(pdfName) {
       const { width, height, mode } = getFlipbookSize();
 
-      // Si le mode est déjà celui affiché, on ne recrée pas tout, juste ajuster la taille
       if (currentMode === mode && $('#flipbook').data('turn')) {
         $('#flipbook').turn('size', width, height);
         return;
       }
 
-      currentMode = mode; // Mémoriser le mode courant
+      currentMode = mode;
 
       resetFlipbookContainer();
       const container = $('#flipbook');
@@ -137,18 +137,28 @@
     }
 
     let resizeTimeout;
-    $(document).ready(function() {
-      loadPDF($('#pdfSelector').val());
+    function stableLoad() {
+      if (!orientationStable) {
+        orientationStable = true;
+        loadPDF($('#pdfSelector').val());
+      }
+    }
 
-      $('#pdfSelector').on('change', function() {
-        loadPDF($(this).val());
-      });
+    $(document).ready(function() {
+      // On attend que la fenêtre soit stable (200ms sans resize) avant de charger
+      let initialResizeTimeout;
+      initialResizeTimeout = setTimeout(stableLoad, 300);
 
       $(window).on('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-          loadPDF($('#pdfSelector').val());
+          orientationStable = false; // on veut recharger si orientation change
+          stableLoad();
         }, 300);
+      });
+
+      $('#pdfSelector').on('change', function() {
+        loadPDF($(this).val());
       });
 
       $('#fullscreen').on('click', function() {
