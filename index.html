@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8">
-  <title>Lecteur PDF V2.6</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="utf-8" />
+  <title>Lecteur PDF V2.1.1</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
       margin: 0;
@@ -60,11 +60,11 @@
     <button id="fullscreen">Plein écran ⛶</button>
     <button id="zoomIn">Zoom +</button>
     <button id="zoomOut">Zoom -</button>
-  </div>  
+  </div>
 
-  <script src="libs/jquery.min.js"></script>  
-  <script src="libs/turn.min.js"></script>  
-  <script src="libs/pdf.min.js"></script>  
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/turn.min.js"></script>
+  <script src="libs/pdf.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
     let zoomLevel = 1;
@@ -133,12 +133,12 @@
         loadPDF($(this).val());
       });
 
+      let resizeTimeout;
       $(window).on('resize', () => {
-        if ($('#flipbook').data('turn')) {
-          const { width, height, isLandscape } = getFlipbookSize();
-          $('#flipbook').turn('size', width, height);
-          $('#flipbook').turn('display', isLandscape ? 'double' : 'single');
-        }
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          loadPDF($('#pdfSelector').val());
+        }, 300);
       });
 
       $('#fullscreen').on('click', function() {
