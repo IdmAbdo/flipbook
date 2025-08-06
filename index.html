@@ -1,170 +1,78 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <title>Flipbook Single/Double fiable</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8" />
+  <title>Test Turn.js Single/Double</title>
   <style>
-    html, body {
-      margin: 0; height: 100%;
-      font-family: sans-serif;
-      background-color: #111;
-      color: #fff;
-      overflow: hidden;
-    }
-    .flipbook-container {
-      height: 100%;
-      width: 100%;
+    body {
+      background: #222;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
       align-items: center;
-      overflow: hidden;
-      background: #111;
+      padding: 20px;
+      color: white;
+      font-family: sans-serif;
     }
     #flipbook {
-      position: relative;
-      max-width: 100%;
-      max-height: 100%;
-      box-sizing: border-box;
+      margin-top: 20px;
+      border: 1px solid #888;
+      box-shadow: 0 0 20px rgba(255,255,255,0.3);
+      background: white;
     }
-    .page img {
-      width: 100%;
-      height: auto;
-      border-radius: 8px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.7);
-      user-select: none;
-      -webkit-user-drag: none;
+    .page {
+      width: 300px;
+      height: 400px;
+      line-height: 400px;
+      text-align: center;
+      font-size: 5rem;
+      font-weight: bold;
+      color: #333;
     }
   </style>
 </head>
 <body>
-  <div class="flipbook-container">
-    <div id="flipbook"></div>
-  </div>
 
-  <script src="libs/jquery.min.js"></script>
-  <script src="libs/turn.min.js"></script>
-  <script src="libs/pdf.min.js"></script>
-  <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+<h1>Test Turn.js Mode Single / Double</h1>
 
-    let currentMode = null;
-    let resizeTimer = null;
+<button id="btnSingle">Mode Single</button>
+<button id="btnDouble">Mode Double</button>
 
-    function getOrientationMode() {
-      return window.matchMedia("(orientation: portrait)").matches ? 'single' : 'double';
-    }
+<div id="flipbook">
+  <div class="page">1</div>
+  <div class="page">2</div>
+  <div class="page">3</div>
+  <div class="page">4</div>
+</div>
 
-    function getFlipbookSize(zoom = 1) {
-      const mode = getOrientationMode();
-      const w = window.innerWidth;
-      const h = window.innerHeight;
-
-      if (mode === 'double') {
-        // double page : hauteur max, largeur calculée selon ratio 0.7, sans dépasser largeur écran
-        let height = h;
-        let width = Math.min(Math.round(height / 0.7), w);
-        return { width, height, mode };
-      } else {
-        // single page : largeur max 95%, max 800px, avec zoom
-        let width = Math.min(w * 0.95, 800) * zoom;
-        let height = Math.round(width * 0.7);
-        if (height > h) {
-          height = h;
-          width = Math.round(height / 0.7);
-        }
-        return { width, height, mode };
-      }
-    }
-
-    async function renderPage(pdf, pageNum, zoomLevel) {
-      const page = await pdf.getPage(pageNum);
-      const viewport = page.getViewport({ scale: 1.5 * zoomLevel });
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      await page.render({ canvasContext: ctx, viewport }).promise;
-      const img = canvas.toDataURL();
-      const pageDiv = $('<div class="page"></div>');
-      pageDiv.append($('<img>').attr('src', img));
-      return pageDiv;
-    }
-
-    async function loadPDF(pdfPath, forceReload = false, zoomLevel = 1) {
-      const { width, height, mode } = getFlipbookSize(zoomLevel);
-
-      if (!forceReload && currentMode === mode && $('#flipbook').data('turn')) {
-        $('#flipbook').turn('size', width, height);
-        return;
-      }
-
-      currentMode = mode;
-
-      // Reset flipbook container
-      const container = $('#flipbook');
-      if (container.data('turn')) {
-        container.turn('destroy');
-      }
-      container.empty();
-
-      try {
-        const pdf = await pdfjsLib.getDocument(pdfPath).promise;
-        const tempContainer = $('<div>').css({
-          visibility: 'hidden',
-          position: 'absolute',
-          top: '-9999px',
-          left: '-9999px',
-          width: '100%',
-          height: '100%'
-        }).appendTo('body');
-
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const pageDiv = await renderPage(pdf, i, zoomLevel);
-          tempContainer.append(pageDiv);
-        }
-
-        container.empty();
-        container.append(tempContainer.children());
-        tempContainer.remove();
-
-        container.turn({
-          width: width,
-          height: height,
-          autoCenter: true,
-          display: mode,
-          duration: 800,
-          gradients: true,
-          acceleration: true,
-          elevation: 100,
-          turnCorners: 'tl,tr',
-          direction: 'ltr'
-        });
-      } catch (error) {
-        alert('Erreur lors du chargement du PDF : ' + error.message);
-      }
-    }
-
-    $(document).ready(() => {
-      const pdfFile = 'pdf/livre.pdf'; // adapte selon ton pdf
-
-      // Chargement initial
-      loadPDF(pdfFile, true);
-
-      // Gestion resize et orientationchange avec délai pour stabilité
-      window.addEventListener('resize', () => {
-        clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(() => {
-          loadPDF(pdfFile);
-        }, 300);
-      });
-
-      window.addEventListener('orientationchange', () => {
-        setTimeout(() => {
-          loadPDF(pdfFile, true);
-        }, 300);
-      });
+<script src="libs/jquery.min.js"></script>
+<script src="libs/turn.min.js"></script>
+<script>
+  function initFlipbook(mode) {
+    $('#flipbook').turn('destroy');
+    $('#flipbook').turn({
+      width: mode === 'single' ? 320 : 640,
+      height: 400,
+      display: mode,
+      autoCenter: true,
+      acceleration: true,
+      gradients: true,
+      elevation: 50
     });
-  </script>
+  }
+
+  $(document).ready(function() {
+    // Init en mode single par défaut
+    initFlipbook('single');
+
+    $('#btnSingle').click(function() {
+      initFlipbook('single');
+    });
+
+    $('#btnDouble').click(function() {
+      initFlipbook('double');
+    });
+  });
+</script>
+
 </body>
 </html>
