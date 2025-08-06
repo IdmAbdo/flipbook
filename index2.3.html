@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <title>Lecteur PDF V2.3</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: sans-serif;
+      background-color: #111;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+    .flipbook-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+    #flipbook {
+      position: relative;
+    }
+    .page {
+      width: 100%;
+      height: 100%;
+    }
+    .page img {
+      width: 100%;
+      height: auto;
+      border-radius: 8px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.7);
+    }
+    .footer {
+      padding: 1rem;
+      background-color: #222;
+      text-align: center;
+    }
+    select, button {
+      padding: 0.5rem;
+      font-size: 1rem;
+      margin: 0.3rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="flipbook-container">
+    <div id="flipbook" class="flipbook"></div>
+  </div>
+  <div class="footer">
+    <label for="pdfSelector">Choisir un livre :</label>
+    <select id="pdfSelector">
+      <option value="livre.pdf">Livre 1</option>
+      <option value="livre01.pdf">Livre 2</option>
+      <option value="livre02.pdf">Livre 3</option>
+    </select>
+    <button id="fullscreen">Plein écran ⛶</button>
+    <button id="zoomIn">Zoom +</button>
+    <button id="zoomOut">Zoom -</button>
+  </div>
+
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/turn.min.js"></script>
+  <script src="libs/pdf.min.js"></script>
+  <script>
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+
+    let zoomLevel = 1;
+    let currentMode = null;
+
+    function resetFlipbookContainer() {
+      const container = $('#flipbook');
+      if (container.data('turn')) {
+        container.turn('destroy');
+      }
+      container.empty().removeAttr('style').removeData();
+    }
+
+    function getFlipbookSize() {
+      const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+      const baseWidth = isLandscape ? Math.min(window.innerWidth * 0.95, 1000) : Math.min(window.innerWidth * 0.95, 800);
+      const width = baseWidth * zoomLevel;
+      const height = Math.round(width * 0.7);
+      return { width, height, mode: isLandscape ? 'double' : 'single' };
+    }
+
+    async function renderPage(pdf, pageNum) {
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1.5 * zoomLevel });
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      canvas.height = viewport.height;
+      canvas.width = viewport.width;
+      await page.render({ canvasContext: context, viewport }).promise;
+      const img = canvas.toDataURL();
+      const pageDiv = $('<div/>', { class: 'page' });
+      pageDiv.append($('<img/>').attr('src', img));
+      return pageDiv;
+    }
+
+    async function loadPDF(pdfName) {
+      const { width, height, mode } = getFlipbookSize();
+
+      if (currentMode === mode && $('#flipbook').data('turn')) {
+        $('#flipbook').turn('size', width, height);
+        return;
+      }
+
+      currentMode = mode;
+      resetFlipbookContainer();
+
+      try {
+        const pdf = await pdfjsLib.getDocument(`pdf/${pdfName}`).promise;
+        const tempContainer = $('<div/>').css({
+          visibility: 'hidden',
+          position: 'absolute',
+          top: '-9999px',
+          left: '-9999px',
+          width: '100%',
+          height: '100%'
+        }).appendTo('body');
+
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const pageDiv = await renderPage(pdf, i);
+          tempContainer.append(pageDiv);
+        }
+
+        resetFlipbookContainer();
+        const realContainer = $('#flipbook');
+        realContainer.append(tempContainer.children());
+        tempContainer.remove();
+
+        realContainer.turn({
+          width: width,
+          height: height,
+          autoCenter: true,
+          duration: 800,
+          elevation: 100,
+          display: mode,
+          direction: 'ltr',
+          gradients: true,
+          acceleration: true,
+          turnCorners: "tl,tr"
+        });
+      } catch (error) {
+        alert("Erreur lors du chargement du PDF : " + error.message);
+      }
+    }
+
+    let resizeTimeout;
+    $(document).ready(function() {
+      loadPDF($('#pdfSelector').val());
+
+      $('#pdfSelector').on('change', function() {
+        loadPDF($(this).val());
+      });
+
+      $(window).on('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          loadPDF($('#pdfSelector').val());
+        }, 300);
+      });
+
+      $('#fullscreen').on('click', function() {
+        const docEl = document.documentElement;
+        if (!document.fullscreenElement) {
+          docEl.requestFullscreen?.();
+        } else {
+          document.exitFullscreen?.();
+        }
+      });
+
+      $('#zoomIn').on('click', function() {
+        zoomLevel = Math.min(zoomLevel + 0.1, 2);
+        loadPDF($('#pdfSelector').val());
+      });
+
+      $('#zoomOut').on('click', function() {
+        zoomLevel = Math.max(zoomLevel - 0.1, 0.5);
+        loadPDF($('#pdfSelector').val());
+      });
+    });
+  </script>
+</body>
+</html>
