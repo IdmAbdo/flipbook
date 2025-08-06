@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Lecteur PDF V2.2.1</title>
+  <title>Lecteur PDF V2.2.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -69,7 +69,7 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
     let zoomLevel = 1;
     let currentMode = null; 
-    let orientationStable = false; // flag pour éviter plusieurs chargements initiaux
+    let orientationStable = false;
 
     function resetFlipbookContainer() {
       const container = $('#flipbook');
@@ -80,7 +80,8 @@
     }
 
     function getFlipbookSize() {
-      const isLandscape = window.innerWidth > window.innerHeight;
+      // Utilisation de matchMedia pour une détection fiable
+      const isLandscape = window.matchMedia("(orientation: landscape)").matches;
       const baseWidth = isLandscape ? Math.min(window.innerWidth * 0.95, 1000) : Math.min(window.innerWidth * 0.95, 800);
       const width = baseWidth * zoomLevel;
       const height = Math.round(width * 0.7);
@@ -145,14 +146,13 @@
     }
 
     $(document).ready(function() {
-      // On attend que la fenêtre soit stable (200ms sans resize) avant de charger
       let initialResizeTimeout;
       initialResizeTimeout = setTimeout(stableLoad, 300);
 
       $(window).on('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
-          orientationStable = false; // on veut recharger si orientation change
+          orientationStable = false;
           stableLoad();
         }, 300);
       });
