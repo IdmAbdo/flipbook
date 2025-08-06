@@ -59,7 +59,7 @@
       opacity: 0;
       transition: opacity 0.4s ease;
       z-index: 1000;
-      pointer-events: none; /* désactive les clics quand caché */
+      pointer-events: none;
     }
     .footer.visible {
       opacity: 1;
@@ -92,8 +92,6 @@
           <option value="livre02.pdf">Livre 3</option>
         </select>
         <button id="fullscreen">Plein écran ⛶</button>
-        <button id="zoomIn">Zoom +</button>
-        <button id="zoomOut">Zoom -</button>
       </div>
     </div>
   </div>
@@ -108,7 +106,6 @@
     let currentMode = null;
     let footerVisibleTimeout;
 
-    // Calcul taille flipbook selon mode single/double + zoom
     function getFlipbookSize() {
       const isLandscape = window.matchMedia("(orientation: landscape)").matches;
       const maxWidth = window.innerWidth;
@@ -117,11 +114,9 @@
       let width, height;
 
       if (isLandscape) {
-        // double mode
         height = maxHeight;
         width = Math.min(Math.round(height / 0.7), maxWidth);
       } else {
-        // single mode
         width = Math.min(maxWidth * 0.95, 800) * zoomLevel;
         height = Math.round(width * 0.7);
         if (height > maxHeight) {
@@ -211,7 +206,7 @@
       clearTimeout(footerVisibleTimeout);
       footerVisibleTimeout = setTimeout(() => {
         footer.removeClass('visible');
-      }, 3000); // 3 secondes d’inactivité
+      }, 3000);
     }
 
     $(document).ready(function() {
@@ -232,19 +227,8 @@
         showFooterTemporarily();
       });
 
-      $('#zoomIn').on('click', function() {
-        zoomLevel = Math.min(zoomLevel + 0.1, 2);
-        loadPDF($('#pdfSelector').val(), true);
-        showFooterTemporarily();
-      });
+      // Suppression des boutons zoom + et zoom - donc pas de leurs handlers
 
-      $('#zoomOut').on('click', function() {
-        zoomLevel = Math.max(zoomLevel - 0.1, 0.5);
-        loadPDF($('#pdfSelector').val(), true);
-        showFooterTemporarily();
-      });
-
-      // Afficher barre au moindre mouvement souris ou tactile
       $(document).on('mousemove touchstart', () => {
         showFooterTemporarily();
       });
