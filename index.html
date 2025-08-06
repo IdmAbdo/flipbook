@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Lecteur PDF V2.3</title>
+  <title>Lecteur PDF V2.4</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -81,9 +81,19 @@
 
     function getFlipbookSize() {
       const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-      const baseWidth = isLandscape ? Math.min(window.innerWidth * 0.95, 1000) : Math.min(window.innerWidth * 0.95, 800);
-      const width = baseWidth * zoomLevel;
-      const height = Math.round(width * 0.7);
+
+      let maxWidth = window.innerWidth * 0.95;
+      let maxHeight = window.innerHeight * 0.95;
+
+      let width = isLandscape ? Math.min(maxWidth, 1000) : Math.min(maxWidth, 800);
+      width = width * zoomLevel;
+
+      let height = Math.round(width * 0.7);
+      if (height > maxHeight) {
+        height = maxHeight;
+        width = Math.round(height / 0.7);
+      }
+
       return { width, height, mode: isLandscape ? 'double' : 'single' };
     }
 
@@ -101,10 +111,10 @@
       return pageDiv;
     }
 
-    async function loadPDF(pdfName) {
+    async function loadPDF(pdfName, forceReload = false) {
       const { width, height, mode } = getFlipbookSize();
 
-      if (currentMode === mode && $('#flipbook').data('turn')) {
+      if (!forceReload && currentMode === mode && $('#flipbook').data('turn')) {
         $('#flipbook').turn('size', width, height);
         return;
       }
@@ -152,17 +162,17 @@
 
     let resizeTimeout;
     $(document).ready(function() {
-      loadPDF($('#pdfSelector').val());
+      loadPDF($('#pdfSelector').val(), true);
 
       $('#pdfSelector').on('change', function() {
-        loadPDF($(this).val());
+        loadPDF($(this).val(), true);
       });
 
       $(window).on('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
           loadPDF($('#pdfSelector').val());
-        }, 300);
+        }, 500);
       });
 
       $('#fullscreen').on('click', function() {
@@ -176,12 +186,12 @@
 
       $('#zoomIn').on('click', function() {
         zoomLevel = Math.min(zoomLevel + 0.1, 2);
-        loadPDF($('#pdfSelector').val());
+        loadPDF($('#pdfSelector').val(), true);
       });
 
       $('#zoomOut').on('click', function() {
         zoomLevel = Math.max(zoomLevel - 0.1, 0.5);
-        loadPDF($('#pdfSelector').val());
+        loadPDF($('#pdfSelector').val(), true);
       });
     });
   </script>
