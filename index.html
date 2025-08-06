@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8" />
-<title>Flipbook v3.5 modifié - transition + boutons</title>
+<title>Flipbook stable avec boutons visibles</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   html, body {
@@ -141,8 +141,8 @@
 
   async function loadPDF(pdfPath, forceReload = false) {
     const { width, height, mode } = getFlipbookSize();
-
     const $flipbook = $('#flipbook');
+    const previousPage = $flipbook.data('turn') ? $flipbook.turn('page') : 1;
 
     if (!forceReload && currentMode === mode && $flipbook.data('turn')) {
       $flipbook.turn('size', width, height);
@@ -189,8 +189,10 @@
         direction: 'ltr'
       });
 
-      // Reset page to 1 on mode change to avoid invalid page error
-      $flipbook.turn('page', 1);
+      // Gérer la page active : si la page précédente est hors limite, revenir à 1
+      const maxPage = $flipbook.turn('pages');
+      const targetPage = previousPage > maxPage ? 1 : previousPage;
+      $flipbook.turn('page', targetPage);
 
     } catch (e) {
       alert("Erreur lors du chargement du PDF : " + e.message);
@@ -227,7 +229,6 @@
       showFooter();
     });
 
-    // Show footer on interaction
     $(document).on('mousemove touchstart', () => {
       showFooter();
     });
