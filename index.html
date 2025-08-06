@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Lecteur PDF V2.6 adapté</title>
+  <title>Lecteur PDF V2.7 - Single/Double dynamique</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -23,7 +23,6 @@
     }
     #flipbook {
       position: relative;
-      /* On laisse le flipbook s'adapter */
     }
     .page {
       width: 100%;
@@ -73,43 +72,40 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
     let zoomLevel = 1;
-    let currentMode = null;
+    let currentMode = null; // 'single' ou 'double'
 
-    function resetFlipbookContainer() {
-      const container = $('#flipbook');
-      if (container.data('turn')) {
-        container.turn('destroy');
-      }
-      container.empty().removeAttr('style').removeData();
+    // Détermine le mode single/double en fonction de l’orientation ET largeur écran
+    function getFlipbookMode() {
+      const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+      const screenWidth = window.innerWidth;
+      const minDoubleWidth = 900; // seuil à ajuster (en px)
+
+      return (isLandscape && screenWidth >= minDoubleWidth) ? 'double' : 'single';
     }
 
+    // Calcule la taille du flipbook selon mode et zoom
     function getFlipbookSize() {
-      const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+      const mode = getFlipbookMode();
+      const maxWidth = window.innerWidth * 0.95;
+      const maxHeight = window.innerHeight * 0.95;
 
-      if (isLandscape) {
-        // En paysage on veut utiliser toute la surface disponible,
-        // tout en gardant le ratio 0.7 (largeur / hauteur)
-        const maxWidth = window.innerWidth;
-        const maxHeight = window.innerHeight;
+      let width, height;
 
-        // On calcule la taille maximale en respectant le ratio 0.7
-        let height = maxHeight;
-        let width = Math.round(height / 0.7);
-
-        if (width > maxWidth) {
-          width = maxWidth;
-          height = Math.round(width * 0.7);
-        }
-
-        return { width, height, mode: 'double' };
+      if (mode === 'double') {
+        // Remplit l’écran en double page
+        height = maxHeight;
+        width = Math.min(Math.round(height / 0.7), maxWidth);
       } else {
-        // Portrait : taille standard avec zoomLevel et taille max limitée
-        const maxWidth = Math.min(window.innerWidth * 0.95, 800);
-        let width = maxWidth * zoomLevel;
-        let height = Math.round(width * 0.7);
-
-        return { width, height, mode: 'single' };
+        // Portrait classique, largeur limitée à 800px max
+        width = Math.min(maxWidth, 800) * zoomLevel;
+        height = Math.round(width * 0.7);
+        if (height > maxHeight) {
+          height = maxHeight;
+          width = Math.round(height / 0.7);
+        }
       }
+
+      return { width, height, mode };
     }
 
     async function renderPage(pdf, pageNum) {
@@ -131,6 +127,7 @@
 
       if (!forceReload && currentMode === mode && $('#flipbook').data('turn')) {
         $('#flipbook').turn('size', width, height);
+        toggleFooter(mode);
         return;
       }
 
@@ -171,15 +168,24 @@
           turnCorners: "tl,tr"
         });
 
-        toggleFooter();
+        toggleFooter(mode);
       } catch (error) {
         alert("Erreur lors du chargement du PDF : " + error.message);
       }
     }
 
-    function toggleFooter() {
-      const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-      if (isLandscape) {
+    function resetFlipbookContainer() {
+      const container = $('#flipbook');
+      if (container.data('turn')) {
+        container.turn('destroy');
+      }
+      container.empty().removeAttr('style').removeData();
+    }
+
+    // Affiche ou masque la barre de boutons selon mode
+    function toggleFooter(mode = null) {
+      if (mode === null) mode = getFlipbookMode();
+      if (mode === 'double') {
         $('.footer').hide();
       } else {
         $('.footer').show();
@@ -198,7 +204,6 @@
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
           loadPDF($('#pdfSelector').val());
-          toggleFooter();
         }, 500);
       });
 
