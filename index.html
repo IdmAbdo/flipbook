@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Flipbook avec barre à gauche en paysage</title>
+  <title>Flipbook adaptatif Desktop/Mobile</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -10,31 +10,75 @@
       font-family: sans-serif;
       background-color: #111;
       color: #fff;
-      display: flex; flex-direction: row; /* changer flex-direction selon mode */
+      overflow: hidden;
     }
-    body.portrait {
+    body, #container {
+      display: flex;
       flex-direction: column;
+      height: 100%;
+      width: 100%;
     }
-    body.landscape {
-      flex-direction: row;
+    /* Conteneur principal qui va changer flex-direction selon mode */
+    #container {
+      flex-grow: 1;
+      display: flex;
+      overflow: hidden;
     }
+    /* Barre des boutons commune */
     .footer {
       background-color: #222;
       padding: 1rem;
       text-align: center;
       transition: all 0.3s ease;
-      flex-shrink: 0;
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
     }
-    body.portrait .footer {
+    select, button {
+      padding: 0.5rem;
+      font-size: 1rem;
+      margin: 0.3rem 0;
       width: 100%;
-      height: auto;
+      box-sizing: border-box;
+      cursor: pointer;
+    }
+
+    /* Styles mobile (barre en bas) */
+    body.mobile #container {
+      flex-direction: column;
+    }
+    body.mobile .footer {
+      height: 70px;
+      width: 100%;
       order: 2;
       display: flex;
       justify-content: center;
       align-items: center;
+      flex-wrap: nowrap;
     }
-    body.landscape .footer {
-      width: 120px; /* largeur fixe pour la barre */
+    body.mobile .footer select,
+    body.mobile .footer button {
+      width: auto;
+      margin: 0 0.5rem;
+      flex-shrink: 0;
+    }
+    body.mobile .flipbook-container {
+      flex-grow: 1;
+      order: 1;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      width: 100%;
+      height: calc(100% - 70px);
+    }
+
+    /* Styles desktop (barre à gauche) */
+    body.desktop #container {
+      flex-direction: row;
+    }
+    body.desktop .footer {
+      width: 140px;
       height: 100vh;
       order: 1;
       display: flex;
@@ -42,26 +86,25 @@
       justify-content: flex-start;
       align-items: center;
       overflow-y: auto;
-      position: fixed;
-      left: 0;
-      top: 0;
-      z-index: 10;
+      position: relative;
+      flex-shrink: 0;
     }
-    .flipbook-container {
+    body.desktop .flipbook-container {
       flex-grow: 1;
+      order: 2;
       display: flex;
       justify-content: center;
       align-items: center;
       overflow: hidden;
-      margin-left: 0;
-      transition: margin-left 0.3s ease;
-    }
-    body.landscape .flipbook-container {
-      margin-left: 120px; /* laisser place à la barre */
       height: 100vh;
+      width: calc(100% - 140px);
+      margin: 0;
     }
+
     #flipbook {
       position: relative;
+      max-width: 100%;
+      max-height: 100%;
     }
     .page {
       width: 100%;
@@ -75,27 +118,24 @@
       user-select: none;
       -webkit-user-drag: none;
     }
-    select, button {
-      padding: 0.5rem; font-size: 1rem; margin: 0.3rem 0;
-      width: 100%;
-      box-sizing: border-box;
-    }
   </style>
 </head>
 <body>
-  <div class="flipbook-container">
-    <div id="flipbook" class="flipbook"></div>
-  </div>
-  <div class="footer">
-    <label for="pdfSelector">Choisir un livre :</label>
-    <select id="pdfSelector">
-      <option value="livre.pdf">Livre 1</option>
-      <option value="livre01.pdf">Livre 2</option>
-      <option value="livre02.pdf">Livre 3</option>
-    </select>
-    <button id="fullscreen">Plein écran ⛶</button>
-    <button id="zoomIn">Zoom +</button>
-    <button id="zoomOut">Zoom -</button>
+  <div id="container">
+    <div class="flipbook-container">
+      <div id="flipbook" class="flipbook"></div>
+    </div>
+    <div class="footer">
+      <label for="pdfSelector">Choisir un livre :</label>
+      <select id="pdfSelector">
+        <option value="livre.pdf">Livre 1</option>
+        <option value="livre01.pdf">Livre 2</option>
+        <option value="livre02.pdf">Livre 3</option>
+      </select>
+      <button id="fullscreen">Plein écran ⛶</button>
+      <button id="zoomIn">Zoom +</button>
+      <button id="zoomOut">Zoom -</button>
+    </div>
   </div>
 
   <script src="libs/jquery.min.js"></script>
@@ -106,7 +146,22 @@
 
     let zoomLevel = 1;
     let currentMode = null;
+    let isDesktop = false;
+    let touchSupported = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
+    // Détecte mobile/desktop par largeur écran
+    function detectDeviceType() {
+      return window.innerWidth >= 900 ? 'desktop' : 'mobile';
+    }
+
+    function updateBodyClass() {
+      const device = detectDeviceType();
+      isDesktop = device === 'desktop';
+      document.body.classList.remove('desktop', 'mobile');
+      document.body.classList.add(device);
+    }
+
+    // Mode single/double selon orientation ET largeur écran
     function getFlipbookMode() {
       const isLandscape = window.matchMedia("(orientation: landscape)").matches;
       const screenWidth = window.innerWidth;
@@ -116,14 +171,14 @@
 
     function getFlipbookSize() {
       const mode = getFlipbookMode();
-      const maxWidth = window.innerWidth;
-      const maxHeight = window.innerHeight;
+      const maxWidth = isDesktop ? window.innerWidth - 140 : window.innerWidth;
+      const maxHeight = isDesktop ? window.innerHeight : (window.innerHeight - 70);
 
       let width, height;
 
       if (mode === 'double') {
         height = maxHeight;
-        width = Math.min(Math.round(height / 0.7), maxWidth - 120); // 120 pour la barre
+        width = Math.min(Math.round(height / 0.7), maxWidth);
       } else {
         width = Math.min(maxWidth * 0.95, 800) * zoomLevel;
         height = Math.round(width * 0.7);
@@ -132,7 +187,6 @@
           width = Math.round(height / 0.7);
         }
       }
-
       return { width, height, mode };
     }
 
@@ -155,7 +209,6 @@
 
       if (!forceReload && currentMode === mode && $('#flipbook').data('turn')) {
         $('#flipbook').turn('size', width, height);
-        updateBodyClass(mode);
         return;
       }
 
@@ -195,8 +248,6 @@
           acceleration: true,
           turnCorners: "tl,tr"
         });
-
-        updateBodyClass(mode);
       } catch (error) {
         alert("Erreur lors du chargement du PDF : " + error.message);
       }
@@ -210,36 +261,24 @@
       container.empty().removeAttr('style').removeData();
     }
 
-    function updateBodyClass(mode) {
-      if (mode === 'double') {
-        $('body').addClass('landscape').removeClass('portrait');
-      } else {
-        $('body').addClass('portrait').removeClass('landscape');
-      }
-    }
-
-    // Gestion tactile swipe gauche/droite pour changer page
+    // Navigation tactile swipe sur desktop avec écran tactile
     function setupTouchNavigation() {
-      const flipbook = $('#flipbook');
+      if (!isDesktop || !touchSupported) return; // activer que sur desktop tactile
 
-      // On gère le swipe avec jQuery Touch Events ou à la main
-      // Ici un simple détecteur swipe sur flipbook
+      const flipbook = $('#flipbook');
       let startX = null;
+
       flipbook.on('touchstart', function(e) {
         startX = e.originalEvent.touches[0].clientX;
       });
+
       flipbook.on('touchend', function(e) {
         if (startX === null) return;
         const endX = e.originalEvent.changedTouches[0].clientX;
         const diff = endX - startX;
         if (Math.abs(diff) > 50) {
-          if (diff > 0) {
-            // swipe vers la droite -> page précédente
-            flipbook.turn('previous');
-          } else {
-            // swipe vers la gauche -> page suivante
-            flipbook.turn('next');
-          }
+          if (diff > 0) flipbook.turn('previous');
+          else flipbook.turn('next');
         }
         startX = null;
       });
@@ -247,6 +286,7 @@
 
     let resizeTimeout;
     $(document).ready(function() {
+      updateBodyClass();
       loadPDF($('#pdfSelector').val(), true);
       setupTouchNavigation();
 
@@ -266,6 +306,7 @@
       $(window).on('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
+          updateBodyClass();
           loadPDF($('#pdfSelector').val());
         }, 500);
       });
