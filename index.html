@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8" />
-<title>Flipbook V3.0 adapté transitions fluides</title>
+<title>Flipbook v3.5 modifié - transition + boutons</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <style>
   html, body {
@@ -27,6 +27,8 @@
     max-height: 100%;
     user-select: none;
     -webkit-user-drag: none;
+    position: relative;
+    z-index: 1;
   }
   .page img {
     width: 100%;
@@ -40,7 +42,7 @@
     left: 50%;
     transform: translateX(-50%);
     height: 50px;
-    background: rgba(0,0,0,0.6);
+    background: rgba(0,0,0,0.7);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -48,10 +50,15 @@
     padding: 0 15px;
     box-sizing: border-box;
     border-radius: 30px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+    z-index: 9999;
+    user-select: none;
+  }
+  .footer.visible {
     opacity: 1;
     pointer-events: auto;
-    z-index: 10;
-    user-select: none;
   }
   select, button {
     padding: 0.4rem 1rem;
@@ -72,7 +79,8 @@
 </style>
 </head>
 <body>
-<div class="flipbook-container">
+
+<div class="flipbook-container" id="container">
   <div id="flipbook"></div>
   <div class="footer" id="footer">
     <label for="pdfSelector" style="user-select:none; white-space: nowrap;">Choisir un livre :</label>
@@ -93,7 +101,8 @@
 
   let currentMode = null;
   let zoomLevel = 1;
-  let resizeTimeout = null;
+  let resizeTimeout;
+  let footerTimeout;
 
   function getMode() {
     return window.matchMedia("(orientation: landscape)").matches ? 'double' : 'single';
@@ -130,21 +139,22 @@
     return pageDiv;
   }
 
-  async function initFlipbook(pdfPath, forceReload = false) {
+  async function loadPDF(pdfPath, forceReload = false) {
     const { width, height, mode } = getFlipbookSize();
 
-    if (!forceReload && currentMode === mode && $('#flipbook').data('turn')) {
-      $('#flipbook').turn('size', width, height);
+    const $flipbook = $('#flipbook');
+
+    if (!forceReload && currentMode === mode && $flipbook.data('turn')) {
+      $flipbook.turn('size', width, height);
       return;
     }
 
     currentMode = mode;
 
-    const container = $('#flipbook');
-    if (container.data('turn')) {
-      container.turn('destroy');
+    if ($flipbook.data('turn')) {
+      $flipbook.turn('destroy');
     }
-    container.empty();
+    $flipbook.empty();
 
     try {
       const pdf = await pdfjsLib.getDocument(pdfPath).promise;
@@ -162,11 +172,11 @@
         tempContainer.append(pageDiv);
       }
 
-      container.empty();
-      container.append(tempContainer.children());
+      $flipbook.empty();
+      $flipbook.append(tempContainer.children());
       tempContainer.remove();
 
-      container.turn({
+      $flipbook.turn({
         width: width,
         height: height,
         display: mode,
@@ -178,25 +188,33 @@
         turnCorners: "tl,tr",
         direction: 'ltr'
       });
+
+      // Reset page to 1 on mode change to avoid invalid page error
+      $flipbook.turn('page', 1);
+
     } catch (e) {
       alert("Erreur lors du chargement du PDF : " + e.message);
     }
   }
 
+  function showFooter() {
+    const footer = $('#footer');
+    footer.addClass('visible');
+    clearTimeout(footerTimeout);
+    footerTimeout = setTimeout(() => {
+      footer.removeClass('visible');
+    }, 4000);
+  }
+
   $(document).ready(() => {
     const pdfPath = $('#pdfSelector').val();
 
-    function reloadFlipbook() {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        initFlipbook(pdfPath, true);
-      }, 200);
-    }
-
-    initFlipbook(pdfPath, true);
+    loadPDF(pdfPath, true);
+    showFooter();
 
     $('#pdfSelector').on('change', function() {
-      initFlipbook($(this).val(), true);
+      loadPDF($(this).val(), true);
+      showFooter();
     });
 
     $('#fullscreen').on('click', () => {
@@ -206,10 +224,23 @@
       } else {
         document.exitFullscreen?.();
       }
+      showFooter();
     });
 
-    $(window).on('resize orientationchange', reloadFlipbook);
+    // Show footer on interaction
+    $(document).on('mousemove touchstart', () => {
+      showFooter();
+    });
+
+    $(window).on('resize orientationchange', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        loadPDF($('#pdfSelector').val(), true);
+        showFooter();
+      }, 300);
+    });
   });
 </script>
+
 </body>
 </html>
