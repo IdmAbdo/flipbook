@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Lecteur PDF V2.5 avec Zoom Tactile</title>
+  <title>Lecteur PDF V2.6 adapté</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -23,7 +23,7 @@
     }
     #flipbook {
       position: relative;
-      touch-action: none; /* Important pour que Hammer gère bien le tactile */
+      /* On laisse le flipbook s'adapter */
     }
     .page {
       width: 100%;
@@ -34,7 +34,7 @@
       height: auto;
       border-radius: 8px;
       box-shadow: 0 5px 15px rgba(0,0,0,0.7);
-      user-select: none; /* éviter sélection lors du zoom */
+      user-select: none;
       -webkit-user-drag: none;
     }
     .footer {
@@ -69,15 +69,11 @@
   <script src="libs/jquery.min.js"></script>
   <script src="libs/turn.min.js"></script>
   <script src="libs/pdf.min.js"></script>
-  <!-- Ajout de Hammer.js via CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
     let zoomLevel = 1;
     let currentMode = null;
-    let hammerManager = null;
-    let initialPinchZoom = null;
 
     function resetFlipbookContainer() {
       const container = $('#flipbook');
@@ -89,23 +85,31 @@
 
     function getFlipbookSize() {
       const isLandscape = window.matchMedia("(orientation: landscape)").matches;
-      const screenWidth = window.innerWidth;
-      const isWideScreen = screenWidth >= 800;
-      const useDouble = isLandscape && isWideScreen;
 
-      let maxWidth = window.innerWidth * 0.95;
-      let maxHeight = window.innerHeight * 0.95;
+      if (isLandscape) {
+        // En paysage on veut utiliser toute la surface disponible,
+        // tout en gardant le ratio 0.7 (largeur / hauteur)
+        const maxWidth = window.innerWidth;
+        const maxHeight = window.innerHeight;
 
-      let width = useDouble ? Math.min(maxWidth, 1000) : Math.min(maxWidth, 800);
-      width = width * zoomLevel;
+        // On calcule la taille maximale en respectant le ratio 0.7
+        let height = maxHeight;
+        let width = Math.round(height / 0.7);
 
-      let height = Math.round(width * 0.7);
-      if (height > maxHeight) {
-        height = maxHeight;
-        width = Math.round(height / 0.7);
+        if (width > maxWidth) {
+          width = maxWidth;
+          height = Math.round(width * 0.7);
+        }
+
+        return { width, height, mode: 'double' };
+      } else {
+        // Portrait : taille standard avec zoomLevel et taille max limitée
+        const maxWidth = Math.min(window.innerWidth * 0.95, 800);
+        let width = maxWidth * zoomLevel;
+        let height = Math.round(width * 0.7);
+
+        return { width, height, mode: 'single' };
       }
-
-      return { width, height, mode: useDouble ? 'double' : 'single' };
     }
 
     async function renderPage(pdf, pageNum) {
@@ -167,9 +171,7 @@
           turnCorners: "tl,tr"
         });
 
-        setupHammer(); // On (re)initialise Hammer à chaque chargement
-
-        toggleFooter(); // Affiche ou masque la barre selon orientation
+        toggleFooter();
       } catch (error) {
         alert("Erreur lors du chargement du PDF : " + error.message);
       }
@@ -184,47 +186,20 @@
       }
     }
 
-    function setupHammer() {
-      if (hammerManager) {
-        hammerManager.destroy();
-        hammerManager = null;
-        initialPinchZoom = null;
-      }
-
-      if (!document.fullscreenElement) {
-        // Ne pas activer zoom tactile si pas plein écran
-        return;
-      }
-
-      const flipbookEl = document.getElementById('flipbook');
-      hammerManager = new Hammer.Manager(flipbookEl);
-
-      // Activer la reconnaissance du pinch
-      const pinch = new Hammer.Pinch();
-      hammerManager.add([pinch]);
-
-      hammerManager.on('pinchstart', function(ev) {
-        initialPinchZoom = zoomLevel;
-      });
-
-      hammerManager.on('pinchmove', function(ev) {
-        if (initialPinchZoom !== null) {
-          let newZoom = initialPinchZoom * ev.scale;
-          newZoom = Math.max(0.5, Math.min(newZoom, 2)); // limiter zoom entre 0.5 et 2
-          if (Math.abs(newZoom - zoomLevel) > 0.01) {
-            zoomLevel = newZoom;
-            loadPDF($('#pdfSelector').val(), true); // recharger avec nouveau zoom
-          }
-        }
-      });
-    }
-
     let resizeTimeout;
     $(document).ready(function() {
       loadPDF($('#pdfSelector').val(), true);
 
       $('#pdfSelector').on('change', function() {
         loadPDF($(this).val(), true);
+      });
+
+      $(window).on('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+          loadPDF($('#pdfSelector').val());
+          toggleFooter();
+        }, 500);
       });
 
       $('#fullscreen').on('click', function() {
@@ -234,28 +209,6 @@
         } else {
           document.exitFullscreen?.();
         }
-      });
-
-      // Quand on entre ou sort du plein écran, on initialise ou détruit Hammer et on affiche la barre
-      document.addEventListener('fullscreenchange', () => {
-        toggleFooter();
-        if (document.fullscreenElement) {
-          setupHammer();
-        } else if (hammerManager) {
-          hammerManager.destroy();
-          hammerManager = null;
-          initialPinchZoom = null;
-          zoomLevel = 1; // reset zoom hors plein écran
-          loadPDF($('#pdfSelector').val(), true);
-        }
-      });
-
-      $(window).on('resize', () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-          loadPDF($('#pdfSelector').val());
-          toggleFooter();
-        }, 500);
       });
 
       $('#zoomIn').on('click', function() {
