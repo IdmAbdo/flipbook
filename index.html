@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Lecteur PDF V2.2.2</title>
+  <title>Lecteur PDF V2.2.3</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -69,7 +69,6 @@
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
     let zoomLevel = 1;
     let currentMode = null; 
-    let orientationStable = false;
 
     function resetFlipbookContainer() {
       const container = $('#flipbook');
@@ -80,7 +79,6 @@
     }
 
     function getFlipbookSize() {
-      // Utilisation de matchMedia pour une détection fiable
       const isLandscape = window.matchMedia("(orientation: landscape)").matches;
       const baseWidth = isLandscape ? Math.min(window.innerWidth * 0.95, 1000) : Math.min(window.innerWidth * 0.95, 800);
       const width = baseWidth * zoomLevel;
@@ -91,95 +89,4 @@
     function loadPDF(pdfName) {
       const { width, height, mode } = getFlipbookSize();
 
-      if (currentMode === mode && $('#flipbook').data('turn')) {
-        $('#flipbook').turn('size', width, height);
-        return;
-      }
-
-      currentMode = mode;
-
-      resetFlipbookContainer();
-      const container = $('#flipbook');
-
-      pdfjsLib.getDocument(`pdf/${pdfName}`).promise.then(function(pdf) {
-        const pagePromises = [];
-
-        for (let i = 1; i <= pdf.numPages; i++) {
-          pagePromises.push(pdf.getPage(i).then(function(page) {
-            const viewport = page.getViewport({ scale: 1.5 * zoomLevel });
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            return page.render({ canvasContext: context, viewport }).promise.then(() => {
-              const pageDiv = $('<div/>', { class: 'page' });
-              const img = canvas.toDataURL();
-              pageDiv.append($('<img/>').attr('src', img));
-              container.append(pageDiv);
-            });
-          }));
-        }
-
-        Promise.all(pagePromises).then(() => {
-          container.turn({
-            width: width,
-            height: height,
-            autoCenter: true,
-            duration: 800,
-            elevation: 100,
-            display: mode,
-            direction: 'ltr',
-            gradients: true,
-            acceleration: true,
-            turnCorners: "tl,tr"
-          });
-        });
-      });
-    }
-
-    let resizeTimeout;
-    function stableLoad() {
-      if (!orientationStable) {
-        orientationStable = true;
-        loadPDF($('#pdfSelector').val());
-      }
-    }
-
-    $(document).ready(function() {
-      let initialResizeTimeout;
-      initialResizeTimeout = setTimeout(stableLoad, 300);
-
-      $(window).on('resize', () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-          orientationStable = false;
-          stableLoad();
-        }, 300);
-      });
-
-      $('#pdfSelector').on('change', function() {
-        loadPDF($(this).val());
-      });
-
-      $('#fullscreen').on('click', function() {
-        const docEl = document.documentElement;
-        if (!document.fullscreenElement) {
-          docEl.requestFullscreen?.();
-        } else {
-          document.exitFullscreen?.();
-        }
-      });
-
-      $('#zoomIn').on('click', function() {
-        zoomLevel = Math.min(zoomLevel + 0.1, 2);
-        loadPDF($('#pdfSelector').val());
-      });
-
-      $('#zoomOut').on('click', function() {
-        zoomLevel = Math.max(zoomLevel - 0.1, 0.5);
-        loadPDF($('#pdfSelector').val());
-      });
-    });
-  </script>
-</body>
-</html>
+      if (currentMode === mode && $('#flipbook').
