@@ -79,9 +79,9 @@
   <div class="footer" id="footer">
     <label for="pdfSelector" style="user-select:none;">Choisir un livre :</label>
     <select id="pdfSelector">
-      <option value="livre.pdf">Livre 1</option>
-      <option value="livre01.pdf">Livre 2</option>
-      <option value="livre02.pdf">Livre 3</option>
+      <option value="pdf/livre.pdf">Livre 1</option>
+      <option value="pdf/livre01.pdf">Livre 2</option>
+      <option value="pdf/livre02.pdf">Livre 3</option>
     </select>
     <button id="fullscreen">Plein écran ⛶</button>
   </div>
@@ -97,12 +97,10 @@
   let footerTimeout;
   let zoomLevel = 1;
 
-  // Détermine mode single/double uniquement par orientation
   function getMode() {
     return window.matchMedia("(orientation: landscape)").matches ? 'double' : 'single';
   }
 
-  // Calcule taille flipbook adapté à l'écran et zoom
   function getFlipbookSize() {
     const mode = getMode();
     const maxWidth = window.innerWidth;
