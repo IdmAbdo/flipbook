@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Flipbook V3.1 – Navigation tactile & Thème auto</title>
+  <title>Flipbook V3.2 - Single/Double par orientation fiable</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -11,20 +11,15 @@
       background-color: #111;
       color: #fff;
       overflow: hidden;
-      transition: background-color 0.5s, color 0.5s;
-    }
-    body.light {
-      background-color: #f0f0f0;
-      color: #222;
     }
     .flipbook-container {
-      position: relative;
       height: 100%;
       width: 100%;
       display: flex;
       justify-content: center;
       align-items: center;
       overflow: hidden;
+      background: #111;
     }
     #flipbook {
       position: relative;
@@ -39,12 +34,7 @@
       box-shadow: 0 5px 15px rgba(0,0,0,0.7);
       user-select: none;
       -webkit-user-drag: none;
-      transition: filter 0.5s;
     }
-    body.light .page img {
-      box-shadow: 0 5px 15px rgba(0,0,0,0.15);
-    }
-    /* Barre boutons overlay */
     .footer {
       position: absolute;
       bottom: 0;
@@ -67,9 +57,6 @@
       opacity: 1;
       pointer-events: auto;
     }
-    body.light .footer {
-      background: rgba(255,255,255,0.8);
-    }
     select, button {
       padding: 0.5rem 1rem;
       font-size: 1rem;
@@ -79,12 +66,6 @@
       border-radius: 4px;
       cursor: pointer;
       user-select: none;
-      transition: background 0.3s, color 0.3s;
-    }
-    body.light select,
-    body.light button {
-      background: #ddd;
-      color: #222;
     }
     select {
       min-width: 120px;
@@ -115,14 +96,9 @@
     let currentMode = null;
     let footerVisibleTimeout;
 
-    // Gestion du thème clair/sombre automatique selon l’heure locale
-    function applyAutoTheme() {
-      const hour = new Date().getHours();
-      if (hour >= 7 && hour < 19) {
-        document.body.classList.add('light');
-      } else {
-        document.body.classList.remove('light');
-      }
+    function getFlipbookMode() {
+      // Mode selon strictement orientation portrait/paysage
+      return window.matchMedia("(orientation: landscape)").matches ? 'double' : 'single';
     }
 
     function getFlipbookSize() {
@@ -143,8 +119,7 @@
           width = Math.round(height / 0.7);
         }
       }
-      const mode = isLandscape ? 'double' : 'single';
-      return { width, height, mode };
+      return { width, height, mode: isLandscape ? 'double' : 'single' };
     }
 
     async function renderPage(pdf, pageNum) {
@@ -227,16 +202,20 @@
       }, 3000);
     }
 
-    $(document).ready(function() {
-      applyAutoTheme();
+    // Fonction principale qui recharge et adapte le flipbook selon orientation
+    function reloadFlipbook() {
       loadPDF($('#pdfSelector').val(), true);
+      showFooterTemporarily();
+    }
 
-      $('#pdfSelector').on('change', function() {
-        loadPDF($(this).val(), true);
-        showFooterTemporarily();
+    $(document).ready(() => {
+      reloadFlipbook();
+
+      $('#pdfSelector').on('change', () => {
+        reloadFlipbook();
       });
 
-      $('#fullscreen').on('click', function() {
+      $('#fullscreen').on('click', () => {
         const docEl = document.documentElement;
         if (!document.fullscreenElement) {
           docEl.requestFullscreen?.();
@@ -246,13 +225,11 @@
         showFooterTemporarily();
       });
 
-      $(document).on('mousemove touchstart', () => {
-        showFooterTemporarily();
+      $(window).on('resize orientationchange', () => {
+        reloadFlipbook();
       });
 
-      $(window).on('resize', () => {
-        applyAutoTheme();
-        loadPDF($('#pdfSelector').val());
+      $(document).on('mousemove touchstart', () => {
         showFooterTemporarily();
       });
     });
