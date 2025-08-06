@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Lecteur PDF V2.1.1</title>
+  <title>Lecteur PDF V2.1.2</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -68,6 +68,7 @@
   <script>
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
     let zoomLevel = 1;
+    let currentMode = null; // 'single' ou 'double'
 
     function resetFlipbookContainer() {
       const container = $('#flipbook');
@@ -82,10 +83,20 @@
       const baseWidth = isLandscape ? Math.min(window.innerWidth * 0.95, 1000) : Math.min(window.innerWidth * 0.95, 800);
       const width = baseWidth * zoomLevel;
       const height = Math.round(width * 0.7);
-      return { width, height, isLandscape };
+      return { width, height, mode: isLandscape ? 'double' : 'single' };
     }
 
     function loadPDF(pdfName) {
+      const { width, height, mode } = getFlipbookSize();
+
+      // Si le mode est déjà celui affiché, on ne recrée pas tout, juste ajuster la taille
+      if (currentMode === mode && $('#flipbook').data('turn')) {
+        $('#flipbook').turn('size', width, height);
+        return;
+      }
+
+      currentMode = mode; // Mémoriser le mode courant
+
       resetFlipbookContainer();
       const container = $('#flipbook');
 
@@ -109,14 +120,13 @@
         }
 
         Promise.all(pagePromises).then(() => {
-          const { width, height, isLandscape } = getFlipbookSize();
           container.turn({
             width: width,
             height: height,
             autoCenter: true,
             duration: 800,
             elevation: 100,
-            display: isLandscape ? 'double' : 'single',
+            display: mode,
             direction: 'ltr',
             gradients: true,
             acceleration: true,
@@ -126,6 +136,7 @@
       });
     }
 
+    let resizeTimeout;
     $(document).ready(function() {
       loadPDF($('#pdfSelector').val());
 
@@ -133,7 +144,6 @@
         loadPDF($(this).val());
       });
 
-      let resizeTimeout;
       $(window).on('resize', () => {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(() => {
