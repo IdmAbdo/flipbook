@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Test Turn.js Single/Double</title>
+  <style>
+    body {
+      background: #222;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      color: white;
+      font-family: sans-serif;
+    }
+    #flipbook {
+      margin-top: 20px;
+      border: 1px solid #888;
+      box-shadow: 0 0 20px rgba(255,255,255,0.3);
+      background: white;
+    }
+    .page {
+      width: 300px;
+      height: 400px;
+      line-height: 400px;
+      text-align: center;
+      font-size: 5rem;
+      font-weight: bold;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Test Turn.js Mode Single / Double</h1>
+
+<button id="btnSingle">Mode Single</button>
+<button id="btnDouble">Mode Double</button>
+
+<div id="flipbook">
+  <div class="page">1</div>
+  <div class="page">2</div>
+  <div class="page">3</div>
+  <div class="page">4</div>
+</div>
+
+<script src="libs/jquery.min.js"></script>
+<script src="libs/turn.min.js"></script>
+<script>
+  function initFlipbook(mode) {
+    $('#flipbook').turn('destroy');
+    $('#flipbook').turn({
+      width: mode === 'single' ? 320 : 640,
+      height: 400,
+      display: mode,
+      autoCenter: true,
+      acceleration: true,
+      gradients: true,
+      elevation: 50
+    });
+  }
+
+  $(document).ready(function() {
+    // Init en mode single par défaut
+    initFlipbook('single');
+
+    $('#btnSingle').click(function() {
+      initFlipbook('single');
+    });
+
+    $('#btnDouble').click(function() {
+      initFlipbook('double');
+    });
+  });
+</script>
+
+</body>
+</html>
