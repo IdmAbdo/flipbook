@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Flipbook V3.1.4 – Navigation avec boutons</title>
+  <title>Flipbook V3.1.2 – Affichage adaptatif</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -100,8 +100,6 @@
         <option value="livre01.pdf">Livre 2</option>
         <option value="livre02.pdf">Livre 3</option>
       </select>
-      <button id="prevPage">Précédente</button>
-      <button id="nextPage">Suivante</button>
       <button id="fullscreen">Plein écran ⛶</button>
     </div>
   </div>
@@ -116,13 +114,14 @@
     let currentMode = null;
     let footerVisibleTimeout;
     let lastOrientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
-    let lastLoadedPDF = "livre.pdf";
-    let loadTimeout = null;
-    let flipbookInstance;
 
     function applyAutoTheme() {
       const hour = new Date().getHours();
-      document.body.classList.toggle('light', hour >= 7 && hour < 19);
+      if (hour >= 7 && hour < 19) {
+        document.body.classList.add('light');
+      } else {
+        document.body.classList.remove('light');
+      }
     }
 
     function getFlipbookSize() {
@@ -164,8 +163,8 @@
     async function loadPDF(pdfName, forceReload = false) {
       const { width, height, mode } = getFlipbookSize();
 
-      if (!forceReload && currentMode === mode && flipbookInstance) {
-        flipbookInstance.turn('size', width, height);
+      if (!forceReload && currentMode === mode && $('#flipbook').data('turn')) {
+        $('#flipbook').turn('size', width, height);
         return;
       }
 
@@ -174,36 +173,48 @@
 
       try {
         const pdf = await pdfjsLib.getDocument(`pdf/${pdfName}`).promise;
-        const pages = [];
+        const tempContainer = $('<div/>').css({
+          visibility: 'hidden',
+          position: 'absolute',
+          top: '-9999px',
+          left: '-9999px',
+          width: '100%',
+          height: '100%'
+        }).appendTo('body');
 
         for (let i = 1; i <= pdf.numPages; i++) {
-          pages.push(await renderPage(pdf, i));
+          const pageDiv = await renderPage(pdf, i);
+          tempContainer.append(pageDiv);
         }
 
-        const flipbook = $('#flipbook');
-        flipbook.html(pages);
-        flipbookInstance = flipbook.turn({
+        resetFlipbookContainer();
+        const realContainer = $('#flipbook');
+        realContainer.append(tempContainer.children());
+        tempContainer.remove();
+
+        realContainer.turn({
           width: width,
           height: height,
-          display: mode,
           autoCenter: true,
           duration: 800,
           elevation: 100,
+          display: mode,
           direction: 'ltr',
           gradients: true,
           acceleration: true,
-          turnCorners: 'tl,tr'
+          turnCorners: "tl,tr"
         });
-
       } catch (error) {
-        alert("Erreur lors du chargement : " + error.message);
+        alert("Erreur lors du chargement du PDF : " + error.message);
       }
     }
 
     function resetFlipbookContainer() {
-      const flipbook = $('#flipbook');
-      if (flipbook.data('turn')) flipbook.turn('destroy');
-      flipbook.empty().removeAttr('style').removeData();
+      const container = $('#flipbook');
+      if (container.data('turn')) {
+        container.turn('destroy');
+      }
+      container.empty().removeAttr('style').removeData();
     }
 
     function showFooterTemporarily() {
@@ -215,21 +226,12 @@
       }, 3000);
     }
 
-    function scheduleReload(delay = 600) {
-      clearTimeout(loadTimeout);
-      loadTimeout = setTimeout(() => {
-        loadPDF(lastLoadedPDF, true);
-      }, delay);
-    }
-
     $(document).ready(function() {
       applyAutoTheme();
-      lastLoadedPDF = $('#pdfSelector').val();
-      loadPDF(lastLoadedPDF, true);
+      loadPDF($('#pdfSelector').val(), true);
 
       $('#pdfSelector').on('change', function() {
-        lastLoadedPDF = this.value;
-        loadPDF(lastLoadedPDF, true);
+        loadPDF(this.value, true);
         showFooterTemporarily();
       });
 
@@ -243,33 +245,16 @@
         showFooterTemporarily();
       });
 
-      $('#prevPage').on('click', () => {
-        if (flipbookInstance) {
-          flipbookInstance.turn('previous');
-        }
-      });
-
-      $('#nextPage').on('click', () => {
-        if (flipbookInstance) {
-          flipbookInstance.turn('next');
-        }
-      });
-
-      document.addEventListener('fullscreenchange', () => {
-        scheduleReload(800);
-      });
-
       $(document).on('mousemove touchstart', showFooterTemporarily);
 
       $(window).on('resize', () => {
         applyAutoTheme();
-        const newOrientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
-        if (newOrientation !== lastOrientation) {
-          lastOrientation = newOrientation;
-          scheduleReload(800);
-        } else {
-          loadPDF(lastLoadedPDF);
-        }
+        const currentOrientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+        const changed = currentOrientation !== lastOrientation;
+        lastOrientation = currentOrientation;
+        setTimeout(() => {
+          loadPDF($('#pdfSelector').val(), changed);
+        }, 300);
       });
     });
   </script>
