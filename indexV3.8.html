@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <title>Flipbook V3.8 – Simple & adaptatif</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    html,body{margin:0;height:100%;font-family:sans-serif;background:#111;color:#fff;
+              overflow:hidden;transition:background .5s,color .5s}
+    body.light{background:#f0f0f0;color:#222}
+
+    .flipbook-container{position:relative;width:100%;height:100%;
+                        display:flex;justify-content:center;align-items:center}
+    #flipbook{max-width:100%;max-height:100%}
+    .page img{width:100%;height:auto;border-radius:8px;
+              box-shadow:0 5px 15px rgba(0,0,0,.7);user-select:none;-webkit-user-drag:none}
+    body.light .page img{box-shadow:0 5px 15px rgba(0,0,0,.12)}
+
+    .footer{position:absolute;bottom:0;left:0;right:0;height:60px;
+            background:rgba(0,0,0,.6);display:flex;align-items:center;
+            justify-content:center;gap:10px;padding:0 10px;z-index:1000}
+    body.light .footer{background:rgba(255,255,255,.85)}
+    select,button{padding:.5rem 1rem;font-size:1rem;border:none;border-radius:4px;
+                  background:#222;color:#fff;cursor:pointer}
+    body.light select,body.light button{background:#ddd;color:#222}
+  </style>
+</head>
+<body>
+  <div class="flipbook-container">
+    <div id="flipbook"></div>
+
+    <div class="footer">
+      <label for="pdfSelect" style="user-select:none">Livre&nbsp;:</label>
+      <select id="pdfSelect">
+        <option value="livre.pdf">Livre&nbsp;1</option>
+        <option value="livre01.pdf">Livre&nbsp;2</option>
+        <option value="livre02.pdf">Livre&nbsp;3</option>
+      </select>
+      <button id="fsBtn">Plein écran ⛶</button>
+    </div>
+  </div>
+
+  <!-- dépendances -->
+  <script src="libs/jquery.min.js"></script>
+  <script src="libs/turn.min.js"></script>
+  <script src="libs/pdf.min.js"></script>
+  <script>
+  /* ---------------- PDF.js worker ---------------- */
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+
+  /* paramètres globaux */
+  const ASPECT = 1.4;   // hauteur / largeur d’une page
+  const SINGLE_MAX_W = 600;   // limite lisible d’une page en mode simple
+  const $flip = $('#flipbook');
+  let currentPDF = null;      // nom actuellement affiché
+
+  /* ---------- thème auto jour / nuit ---------- */
+  function autoTheme(){
+    const h = new Date().getHours();
+    document.body.classList.toggle('light', h>=7 && h<19);
+  }
+
+  /* ---------- calcul largeur / hauteur & mode ---------- */
+  function computeLayout(){
+    const availW = innerWidth  * .95;
+    const availH = innerHeight * .95;
+    const landscape = innerWidth > innerHeight;
+
+    if (landscape){
+      // essai en double page
+      let h = availH;
+      let w = 2 * (h / ASPECT);
+      if (w > availW){          // trop large -> réduire hauteur
+        w = availW;
+        h = (w / 2) * ASPECT;
+      }
+      // si malgré tout chaque page < 260 px, on force simple
+      if ((w/2) < 260){
+        return computeSingle(availW, availH);
+      }
+      return {width:Math.floor(w), height:Math.floor(h), mode:'double'};
+    }else{
+      return computeSingle(availW, availH);
+    }
+  }
+  function computeSingle(availW, availH){
+    let w = Math.min(availW, SINGLE_MAX_W);
+    let h = w * ASPECT;
+    if (h > availH){ h = availH; w = h / ASPECT; }
+    return {width:Math.floor(w), height:Math.floor(h), mode:'single'};
+  }
+
+  /* ---------- fabrique une page HTML à partir du PDF ---------- */
+  async function makePage(page){
+    const vp = page.getViewport({scale:1.5});
+    const c  = document.createElement('canvas');
+    c.width  = vp.width; c.height = vp.height;
+    await page.render({canvasContext:c.getContext('2d'), viewport:vp}).promise;
+    return $('<div>',{class:'page'}).append($('<img>',{src:c.toDataURL()}));
+  }
+
+  /* ---------- charge un PDF (si nouveau) ---------- */
+  async function loadPDF(name){
+    if (name === currentPDF) return;          // déjà en place
+    currentPDF = name;
+
+    if ($flip.data('turn')) $flip.turn('destroy').empty(); else $flip.empty();
+
+    /* vérifie l’existance du fichier */
+    try{
+      const check = await fetch(`pdf/${name}`);
+      if (!check.ok) throw new Error(`Fichier introuvable (${check.status})`);
+    }catch(e){
+      $flip.html(`<p style="color:#e33;text-align:center;margin-top:2rem">${e.message}</p>`);
+      return;
+    }
+
+    /* rendu des pages */
+    const pdf = await pdfjsLib.getDocument(`pdf/${name}`).promise;
+    for (let p=1; p<=pdf.numPages; p++){
+      $flip.append(await makePage(await pdf.getPage(p)));
+    }
+    initTurn();
+  }
+
+  /* ---------- initialise (ou ré‑initialise) turn.js ---------- */
+  function initTurn(){
+    const {width,height,mode} = computeLayout();
+    $flip.turn({
+      width, height, display:mode, autoCenter:true,
+      gradients:false, duration:400, elevation:0
+    });
+  }
+
+  /* ---------- ajuste le flipbook existant ---------- */
+  function refresh(){
+    if(!$flip.data('turn')) return;
+    const {width,height,mode} = computeLayout();
+    $flip.turn('display', mode);
+    $flip.turn('size',    width, height);
+  }
+
+  /* ---------- événements ---------- */
+  $('#pdfSelect').on('change', e => loadPDF(e.target.value));
+
+  $('#fsBtn').on('click',()=>{
+    document.fullscreenElement
+      ? document.exitFullscreen?.()
+      : document.documentElement.requestFullscreen?.();
+  });
+
+  document.addEventListener('fullscreenchange', ()=> setTimeout(refresh,150));
+  $(window).on('resize', ()=>{
+    autoTheme();
+    setTimeout(refresh,150);
+  });
+
+  /* ---------- démarrage ---------- */
+  (async()=>{
+    autoTheme();
+    await loadPDF($('#pdfSelect').val());
+  })();
+  </script>
+</body>
+</html>
