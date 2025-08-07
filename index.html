@@ -2,17 +2,17 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <title>Flipbook V3.9</title>
+  <title>Flipbook robuste portrait/paysage</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     html,body{margin:0;height:100%;font-family:sans-serif;background:#111;color:#fff;overflow:hidden}
-    body.light{background:#f0f0f0;color:#222}
     .flipbook-container{position:relative;width:100vw;height:100vh;display:flex;justify-content:center;align-items:center}
     #flipbook{box-shadow:0 0 8px #222;max-width:100vw;max-height:100vh;}
     .page img{width:100%;height:auto;border-radius:8px;user-select:none;-webkit-user-drag:none}
     .footer{position:absolute;bottom:0;left:0;right:0;height:60px;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;gap:10px;padding:0 10px;z-index:1000}
-    body.light .footer{background:rgba(255,255,255,.85)}
     select,button{padding:.5rem 1rem;font-size:1rem;border:none;border-radius:4px;background:#222;color:#fff;cursor:pointer}
+    body.light{background:#f0f0f0;color:#222}
+    body.light .footer{background:rgba(255,255,255,.85)}
     body.light select,body.light button{background:#ddd;color:#222}
   </style>
 </head>
@@ -20,7 +20,7 @@
   <div class="flipbook-container">
     <div id="flipbook"></div>
     <div class="footer">
-      <label for="pdfSelect" style="user-select:none">Livre&nbsp;:</label>
+      <label for="pdfSelect" style="user-select:none">Livre :</label>
       <select id="pdfSelect">
         <option value="livre.pdf">Livre 1</option>
         <option value="livre01.pdf">Livre 2</option>
@@ -33,90 +33,92 @@
   <script src="libs/turn.min.js"></script>
   <script src="libs/pdf.min.js"></script>
   <script>
-  // --- CONFIG PDF.js worker ---
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
 
-  // --- CONSTANTES ---
-  const PAGE_ASPECT = 1.4;       // Hauteur/Largeur d'une page simple
-  const PAGE_MIN_W = 260;        // Largeur mini d'une page (pour la lisibilité)
-  const PAGE_MAX_W = 600;        // Largeur maxi en mode simple
+  // --- PARAMÈTRES ---
+  const ASPECT = 1.4;      // H/L page
+  const PAGE_MIN_W = 250;  // largeur mini pour chaque page double (en px)
+  const PAGE_MAX_W = 600;  // largeur maxi d'une page simple
 
+  // --- VARIABLES D'ÉTAT ---
   const $flip = $('#flipbook');
   let currentPDF = null;
+  let lastMode = null;
+  let pageImages = [];     // cache des images (pour ne pas rerendre au resize)
 
-  // --- THEME AUTO ---
+  // --- THÈME ---
   function autoTheme(){
     const h = new Date().getHours();
     document.body.classList.toggle('light', h>=7 && h<19);
   }
 
-  // --- CALCUL DU MODE ET DES DIMENSIONS ---
+  // --- CALCUL MODE ET DIMENSIONS ---
   function getLayout(){
     const isLandscape = window.innerWidth > window.innerHeight;
-    const availW = window.innerWidth  * 0.96;
+    const availW = window.innerWidth * 0.96;
     const availH = window.innerHeight * 0.93;
-
     if(isLandscape){
-      // Mode double si chaque page peut faire au moins PAGE_MIN_W px de large
       let pageH = availH;
-      let pageW = pageH / PAGE_ASPECT;
-      if(2*pageW > availW){ pageW = availW/2; pageH = pageW*PAGE_ASPECT; }
+      let pageW = pageH / ASPECT;
+      if(2*pageW > availW){ pageW = availW/2; pageH = pageW*ASPECT; }
       if(pageW >= PAGE_MIN_W){
         return {width:Math.floor(pageW*2), height:Math.floor(pageH), mode:'double'};
       }
     }
-    // Sinon mode single
+    // Mode simple
     let w = Math.min(availW, PAGE_MAX_W);
-    let h = w * PAGE_ASPECT;
-    if(h > availH){ h = availH; w = h / PAGE_ASPECT; }
+    let h = w * ASPECT;
+    if(h > availH){ h = availH; w = h / ASPECT; }
     return {width:Math.floor(w), height:Math.floor(h), mode:'single'};
   }
 
-  // --- RENDU D'UNE PAGE ---
+  // --- RENDU D'UNE PAGE (toujours cache en mémoire) ---
   async function makePage(page){
     const vp = page.getViewport({scale:1.5});
-    const c  = document.createElement('canvas'), ctx = c.getContext('2d');
+    const c  = document.createElement('canvas');
     c.width  = vp.width; c.height = vp.height;
-    await page.render({canvasContext:ctx, viewport:vp}).promise;
-    return $('<div>',{class:'page'}).append($('<img>',{src:c.toDataURL()}));
+    await page.render({canvasContext:c.getContext('2d'), viewport:vp}).promise;
+    return c.toDataURL();
   }
 
-  // --- CHARGEMENT PDF ---
+  // --- CHARGEMENT PDF + CACHE IMAGES ---
   async function loadPDF(name){
-    if(name === currentPDF) return;
     currentPDF = name;
+    pageImages = [];
     if($flip.data('turn')) $flip.turn('destroy').empty(); else $flip.empty();
 
-    // Test existence fichier
-    try{
-      const check = await fetch(`pdf/${name}`);
-      if(!check.ok) throw new Error(`Fichier introuvable (${check.status})`);
-    }catch(e){
-      $flip.html(`<p style="color:#e33;text-align:center;margin-top:2rem">${e.message}</p>`);
-      return;
-    }
-    // Rendu pages
     const pdf = await pdfjsLib.getDocument(`pdf/${name}`).promise;
     for(let p=1; p<=pdf.numPages; p++){
-      $flip.append(await makePage(await pdf.getPage(p)));
+      pageImages.push(await makePage(await pdf.getPage(p)));
     }
-    startTurn();
+    buildFlipbook();
   }
 
-  // --- INITIALISATION/REMAPPING TURN.JS ---
-  function startTurn(){
+  // --- CONSTRUIT (OU RECONSTRUIT) LE FLIPBOOK DANS LE BON MODE ---
+  function buildFlipbook(){
+    $flip.empty();
+    for(const img of pageImages){
+      $flip.append($('<div>',{class:'page'}).append($('<img>',{src:img})));
+    }
     const {width, height, mode} = getLayout();
     $flip.turn({
       width, height, display:mode, autoCenter:true,
-      gradients:false, duration:400, elevation:0, turnCorners:'tl,tr'
+      gradients:false, duration:400, elevation:0
     });
+    lastMode = mode;
   }
 
+  // --- AJUSTE AU REDIMENSIONNEMENT / ROTATION ---
   function refresh(){
-    if(!$flip.data('turn')) return;
     const {width, height, mode} = getLayout();
-    $flip.turn('display', mode);
-    $flip.turn('size', width, height);
+    if(!$flip.data('turn')) return;
+    if(mode !== lastMode){
+      // On doit reconstruire (switch single<->double)
+      buildFlipbook();
+    }else{
+      // Sinon on ajuste la taille
+      $flip.turn('size', width, height);
+    }
   }
 
   // --- EVENEMENTS ---
@@ -126,10 +128,10 @@
       ? document.exitFullscreen?.()
       : document.documentElement.requestFullscreen?.();
   });
-  document.addEventListener('fullscreenchange', ()=>setTimeout(refresh,150));
-  $(window).on('resize', ()=>{autoTheme();setTimeout(refresh,150);});
+  document.addEventListener('fullscreenchange', ()=>setTimeout(refresh,120));
+  $(window).on('resize', ()=>{autoTheme();setTimeout(refresh,120);});
 
-  // --- DEMARRAGE ---
+  // --- INIT ---
   (async()=>{
     autoTheme();
     await loadPDF($('#pdfSelect').val());
