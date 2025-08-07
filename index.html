@@ -1,222 +1,68 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-  <meta charset="utf-8" />
-  <title>Lecteur PDF V2.4 - Zone Conteneur Fixe</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Flipbook PDF V4.0</title>
+  <link href="libs/dflip.min.css" rel="stylesheet">
   <style>
-    html, body {
-      margin: 0; height: 100%; font-family: sans-serif; background: #111; color: #fff;
-      display: flex; flex-direction: column;
-    }
-    .flipbook-container {
-      flex: 1;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      overflow: hidden;
-    }
-    #flipbook-wrapper {
-      width: 800px;
-      max-width: 95vw;
-      height: 1120px; /* 1.4 ratio approx */
-      max-height: 90vh;
-      box-sizing: border-box;
-      padding: 0;
-      margin: 0 auto;
-      border: 2px solid #333;
-      background: #222;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    #flipbook {
-      width: 100%;
-      height: 100%;
-      position: relative;
-    }
-    .page {
-      width: 100%;
-      height: 100%;
-    }
-    .page img {
-      width: 100%;
-      height: auto;
-      border-radius: 8px;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.7);
-      user-select: none;
-    }
-    .footer {
-      padding: 1rem;
-      background-color: #222;
-      text-align: center;
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 0.5rem;
-    }
-    select, button {
-      padding: 0.5rem 1rem;
-      font-size: 1rem;
-      cursor: pointer;
-      background: #333;
-      border: none;
-      color: #fff;
-      border-radius: 4px;
-    }
-    select {
-      min-width: 140px;
-    }
+    body { font-family: Arial, sans-serif; margin: 0; padding: 20px; }
+    #pdf-list { margin-bottom: 20px; }
+    #pdf-list button { margin-right: 10px; padding: 10px; cursor: pointer; }
+    #flipbook-container { width: 100%; height: 80vh; }
+    #fullscreen-btn { position: absolute; top: 20px; right: 20px; padding: 10px; z-index:1000; }
   </style>
 </head>
 <body>
 
-  <div class="flipbook-container">
-    <div id="flipbook-wrapper">
-      <div id="flipbook" class="flipbook"></div>
-    </div>
+  <div id="pdf-list">
+    <button data-src="PDF/pdf1.pdf">Document 1</button>
+    <button data-src="PDF/pdf2.pdf">Document 2</button>
+    <button data-src="PDF/pdf3.pdf">Document 3</button>
+    <button data-src="PDF/pdf4.pdf">Document 4</button>
   </div>
 
-  <div class="footer">
-    <label for="pdfSelector">Choisir un livre :</label>
-    <select id="pdfSelector">
-      <option value="livre.pdf">Livre 1</option>
-      <option value="livre01.pdf">Livre 2</option>
-      <option value="livre02.pdf">Livre 3</option>
-    </select>
-
-    <label for="modeSelector">Mode affichage :</label>
-    <select id="modeSelector">
-      <option value="single">Single Page</option>
-      <option value="double">Double Page</option>
-    </select>
-
-    <button id="fullscreen">Plein écran ⛶</button>
-    <button id="zoomIn">Zoom +</button>
-    <button id="zoomOut">Zoom -</button>
+  <div id="flipbook-container">
+    <div class="_df_book" id="flipbook"></div>
   </div>
+
+  <button id="fullscreen-btn">Plein écran</button>
 
   <script src="libs/jquery.min.js"></script>
-  <script src="libs/turn.min.js"></script>
-  <script src="libs/pdf.min.js"></script>
+  <script src="libs/dflip.min.js"></script>
   <script>
-    pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
-
-    let zoomLevel = 1;
-    let currentMode = 'single';
-
-    function resetFlipbookContainer() {
-      const container = $('#flipbook');
-      if (container.data('turn')) {
-        container.turn('destroy');
-      }
-      container.empty().removeAttr('style').removeData();
-    }
-
-    function getFlipbookSize() {
-      // On prend la taille du conteneur #flipbook-wrapper comme base fixe
-      const wrapper = $('#flipbook-wrapper');
-      const baseWidth = wrapper.width();
-      const baseHeight = wrapper.height();
-
-      // On applique zoom au calcul
-      const width = baseWidth * zoomLevel;
-      const height = baseHeight * zoomLevel;
-
-      return { width, height };
-    }
-
-    function loadPDF(pdfName) {
-      resetFlipbookContainer();
-      const container = $('#flipbook');
-
-      pdfjsLib.getDocument(`pdf/${pdfName}`).promise.then(function(pdf) {
-        const pagePromises = [];
-
-        for (let i = 1; i <= pdf.numPages; i++) {
-          pagePromises.push(pdf.getPage(i).then(function(page) {
-            const viewport = page.getViewport({ scale: 1.5 * zoomLevel });
-            const canvas = document.createElement('canvas');
-            const context = canvas.getContext('2d');
-            canvas.height = viewport.height;
-            canvas.width = viewport.width;
-            return page.render({ canvasContext: context, viewport }).promise.then(() => {
-              const pageDiv = $('<div/>', { class: 'page' });
-              const img = canvas.toDataURL();
-              pageDiv.append($('<img/>').attr('src', img));
-              container.append(pageDiv);
-            });
-          }));
-        }
-
-        Promise.all(pagePromises).then(() => {
-          const { width, height } = getFlipbookSize();
-
-          container.turn({
-            width: width,
-            height: height,
-            autoCenter: true,
-            duration: 800,
-            elevation: 50,
-            display: currentMode,
-            acceleration: true,
-            gradients: true,
-            turnCorners: "tl,tr",
-            when: {
-              turning: function() {
-                container.turn('display', currentMode);
-              },
-              turned: function() {
-                container.turn('display', currentMode);
-              },
-              resize: function() {
-                container.turn('display', currentMode);
-              }
-            }
-          });
-        });
-      });
-    }
-
     $(document).ready(function() {
-      loadPDF($('#pdfSelector').val());
+      function loadFlipbook(src) {
+        $("#flipbook").empty();
+        const isPortrait = window.innerHeight > window.innerWidth;
+        const options = {
+          source: src,
+          webgl: true,
+          pageMode: DFLIP.PAGE_MODE.AUTO,
+          singlePageMode: DFLIP.SINGLE_PAGE_MODE.AUTO,
+          zoomRatio: 1.5,
+          scrollWheel: true,
+          showDownloadControl: true,
+          showPrintControl: true,
+          showSearchControl: true,
+          duration: 600
+        };
+        $("#flipbook").flipBook(options);
+      }
 
-      $('#pdfSelector').on('change', function() {
-        loadPDF($(this).val());
+      $('#pdf-list button').on('click', function() {
+        loadFlipbook($(this).data('src'));
       });
 
-      $('#modeSelector').on('change', function() {
-        currentMode = $(this).val();
-        loadPDF($('#pdfSelector').val());
+      $('#fullscreen-btn').on('click', function() {
+        const elem = document.getElementById('flipbook');
+        if (elem.requestFullscreen) elem.requestFullscreen();
+        else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
       });
 
-      $(window).on('resize', () => {
-        if ($('#flipbook').data('turn')) {
-          const { width, height } = getFlipbookSize();
-          $('#flipbook').turn('size', width, height);
-          $('#flipbook').turn('display', currentMode);
-        }
-      });
-
-      $('#fullscreen').on('click', function() {
-        const docEl = document.documentElement;
-        if (!document.fullscreenElement) {
-          docEl.requestFullscreen?.();
-        } else {
-          document.exitFullscreen?.();
-        }
-      });
-
-      $('#zoomIn').on('click', function() {
-        zoomLevel = Math.min(zoomLevel + 0.1, 2);
-        loadPDF($('#pdfSelector').val());
-      });
-
-      $('#zoomOut').on('click', function() {
-        zoomLevel = Math.max(zoomLevel - 0.1, 0.5);
-        loadPDF($('#pdfSelector').val());
-      });
+      // Charger automatiquement le premier PDF
+      loadFlipbook($('#pdf-list button').first().data('src'));
     });
   </script>
-
 </body>
 </html>
