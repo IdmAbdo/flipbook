@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Flipbook V3.1.4 – Fix navigation après plein écran</title>
+  <title>Flipbook V3.1.4 – Navigation avec boutons</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -100,6 +100,8 @@
         <option value="livre01.pdf">Livre 2</option>
         <option value="livre02.pdf">Livre 3</option>
       </select>
+      <button id="prevPage">Précédente</button>
+      <button id="nextPage">Suivante</button>
       <button id="fullscreen">Plein écran ⛶</button>
     </div>
   </div>
@@ -116,6 +118,7 @@
     let lastOrientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
     let lastLoadedPDF = "livre.pdf";
     let loadTimeout = null;
+    let flipbookInstance;
 
     function applyAutoTheme() {
       const hour = new Date().getHours();
@@ -161,8 +164,8 @@
     async function loadPDF(pdfName, forceReload = false) {
       const { width, height, mode } = getFlipbookSize();
 
-      if (!forceReload && currentMode === mode && $('#flipbook').data('turn')) {
-        $('#flipbook').turn('size', width, height);
+      if (!forceReload && currentMode === mode && flipbookInstance) {
+        flipbookInstance.turn('size', width, height);
         return;
       }
 
@@ -179,7 +182,7 @@
 
         const flipbook = $('#flipbook');
         flipbook.html(pages);
-        flipbook.turn({
+        flipbookInstance = flipbook.turn({
           width: width,
           height: height,
           display: mode,
@@ -238,6 +241,18 @@
           document.exitFullscreen?.();
         }
         showFooterTemporarily();
+      });
+
+      $('#prevPage').on('click', () => {
+        if (flipbookInstance) {
+          flipbookInstance.turn('previous');
+        }
+      });
+
+      $('#nextPage').on('click', () => {
+        if (flipbookInstance) {
+          flipbookInstance.turn('next');
+        }
       });
 
       document.addEventListener('fullscreenchange', () => {
