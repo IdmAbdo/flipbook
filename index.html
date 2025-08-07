@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8" />
-  <title>Flipbook V3.1.3 – Effets préservés</title>
+  <title>Flipbook V3.1.4 – Fix navigation après plein écran</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <style>
     html, body {
@@ -114,6 +114,8 @@
     let currentMode = null;
     let footerVisibleTimeout;
     let lastOrientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+    let lastLoadedPDF = "livre.pdf";
+    let loadTimeout = null;
 
     function applyAutoTheme() {
       const hour = new Date().getHours();
@@ -121,10 +123,9 @@
     }
 
     function getFlipbookSize() {
-      const isLandscape = window.matchMedia("(orientation: landscape)").matches;
+      const isLandscape = window.innerWidth > window.innerHeight;
       const maxWidth = window.innerWidth;
       const maxHeight = window.innerHeight;
-
       let width, height;
 
       if (isLandscape) {
@@ -170,75 +171,66 @@
 
       try {
         const pdf = await pdfjsLib.getDocument(`pdf/${pdfName}`).promise;
-        const tempContainer = $('<div/>').css({
-          visibility: 'hidden',
-          position: 'absolute',
-          top: '-9999px',
-          left: '-9999px',
-          width: '100%',
-          height: '100%'
-        }).appendTo('body');
+        const pages = [];
 
         for (let i = 1; i <= pdf.numPages; i++) {
-          const pageDiv = await renderPage(pdf, i);
-          tempContainer.append(pageDiv);
+          pages.push(await renderPage(pdf, i));
         }
 
-        resetFlipbookContainer();
-        const realContainer = $('#flipbook');
-        realContainer.append(tempContainer.children());
-        tempContainer.remove();
-
-        realContainer.turn({
+        const flipbook = $('#flipbook');
+        flipbook.html(pages);
+        flipbook.turn({
           width: width,
           height: height,
+          display: mode,
           autoCenter: true,
           duration: 800,
           elevation: 100,
-          display: mode,
           direction: 'ltr',
           gradients: true,
           acceleration: true,
-          turnCorners: "tl,tr"
+          turnCorners: 'tl,tr'
         });
+
       } catch (error) {
-        alert("Erreur lors du chargement du PDF : " + error.message);
+        alert("Erreur lors du chargement : " + error.message);
       }
     }
 
     function resetFlipbookContainer() {
-      const container = $('#flipbook');
-      if (container.data('turn')) {
-        container.turn('destroy');
-      }
-      container.empty().removeAttr('style').removeData();
+      const flipbook = $('#flipbook');
+      if (flipbook.data('turn')) flipbook.turn('destroy');
+      flipbook.empty().removeAttr('style').removeData();
     }
 
     function showFooterTemporarily() {
       const footer = $('#footer');
-      footer.addClass('visible');
+      footer.classList.add('visible');
       clearTimeout(footerVisibleTimeout);
       footerVisibleTimeout = setTimeout(() => {
-        footer.removeClass('visible');
+        footer.classList.remove('visible');
       }, 3000);
     }
 
-    function reloadFlipbookFully() {
-      setTimeout(() => {
-        loadPDF($('#pdfSelector').val(), true);
-      }, 300);
+    function scheduleReload(delay = 600) {
+      clearTimeout(loadTimeout);
+      loadTimeout = setTimeout(() => {
+        loadPDF(lastLoadedPDF, true);
+      }, delay);
     }
 
     $(document).ready(function() {
       applyAutoTheme();
-      loadPDF($('#pdfSelector').val(), true);
+      lastLoadedPDF = $('#pdfSelector').val();
+      loadPDF(lastLoadedPDF, true);
 
       $('#pdfSelector').on('change', function() {
-        loadPDF($(this).val(), true);
+        lastLoadedPDF = this.value;
+        loadPDF(lastLoadedPDF, true);
         showFooterTemporarily();
       });
 
-      $('#fullscreen').on('click', function() {
+      $('#fullscreen').on('click', () => {
         const docEl = document.documentElement;
         if (!document.fullscreenElement) {
           docEl.requestFullscreen?.();
@@ -248,25 +240,21 @@
         showFooterTemporarily();
       });
 
-      $(document).on('mousemove touchstart', () => {
-        showFooterTemporarily();
+      document.addEventListener('fullscreenchange', () => {
+        scheduleReload(800);
       });
+
+      $(document).on('mousemove touchstart', showFooterTemporarily);
 
       $(window).on('resize', () => {
         applyAutoTheme();
-        const currentOrientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
-        const changed = currentOrientation !== lastOrientation;
-        lastOrientation = currentOrientation;
-
-        if (changed) {
-          reloadFlipbookFully();
+        const newOrientation = window.innerWidth > window.innerHeight ? 'landscape' : 'portrait';
+        if (newOrientation !== lastOrientation) {
+          lastOrientation = newOrientation;
+          scheduleReload(800);
         } else {
-          loadPDF($('#pdfSelector').val());
+          loadPDF(lastLoadedPDF);
         }
-      });
-
-      document.addEventListener('fullscreenchange', () => {
-        reloadFlipbookFully();
       });
     });
   </script>
